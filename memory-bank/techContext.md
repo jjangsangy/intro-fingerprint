@@ -5,6 +5,7 @@
 - **Host Application**: [MPV Media Player](https://mpv.io/)
 - **External Dependencies**:
     - **FFmpeg**: Must be available in the system PATH. Used for frame and audio extraction.
+    - **Docker**: Used for cross-compiling the `libfftw3f` shared objects.
 - **Libraries**:
     - `ffi`: LuaJIT Foreign Function Interface for C-level performance.
     - `bit`: Lua bitwise operations (provided by LuaJIT).

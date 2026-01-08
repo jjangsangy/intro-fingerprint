@@ -797,6 +797,7 @@ local function process_audio_data(pcm_str)
         if options.audio_use_fftw == "yes" and ffi.os ~= "OSX" then
             if not fftw_lib and not fftw_path_tried then
                 fftw_path_tried = true
+                msg.info("FFTW enabled in config. Attempting to load library...")
 
                 local lib_name = nil
                 if ffi.os == "Windows" then
@@ -806,15 +807,26 @@ local function process_audio_data(pcm_str)
                 end
 
                 if lib_name then
+                    msg.info("Looking for FFTW library: " .. lib_name)
                     local path = mp.find_config_file("scripts/intro-fingerprint/" .. lib_name)
                     if path then
-                        local status, lib = pcall(ffi.load, path)
-                        if status then fftw_lib = lib end
+                        msg.info("Found FFTW library at: " .. path)
+                        local status, err = pcall(ffi.load, path)
+                        if status then
+                            fftw_lib = err -- pcall success returns result (the lib) as second arg
+                            msg.info("Successfully loaded FFTW library.")
+                        else
+                            msg.error("Failed to load FFTW library: " .. tostring(err))
+                        end
+                    else
+                        msg.error("Could not find FFTW library in scripts/intro-fingerprint/")
                     end
                 end
             end
 
             if fftw_lib then
+                msg.info("FFTW: Initializing processing plan...")
+
                 local samples = ffi.new("double[?]", num_samples)
                 for i = 0, num_samples - 1 do
                     samples[i] = ptr[i] / 32768.0
@@ -849,8 +861,12 @@ local function process_audio_data(pcm_str)
                     end
 
                     fftw_lib.fftwf_execute(plan)
+                    if i == 0 then
+                        msg.info("FFTW: Execution successful for first chunk.")
+                    end
 
                     for k = 0, fft_size / 2 - 1 do
+
                         -- Using squared magnitude to avoid sqrt
                         local r = fft_out_c[k][0]
                         local i_part = fft_out_c[k][1]

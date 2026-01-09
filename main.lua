@@ -21,8 +21,8 @@ local options = {
     audio_threshold = 10,            -- minimum magnitude for peaks
     audio_scan_limit = 900,          -- max seconds to scan (15 mins)
     audio_fingerprint_duration = 10, -- duration of the audio fingerprint in seconds
-    audio_burst_duration = 12,       -- duration of each scan burst (longer than fingerprint to ensure overlap)
-    audio_burst_interval = 15,       -- interval between scan bursts
+    audio_burst_duration = 20,       -- duration of each scan burst (longer than fingerprint to ensure overlap)
+    audio_burst_interval = 10,       -- interval between scan bursts
     audio_concurrency = 4,           -- number of concurrent ffmpeg workers
     audio_min_match_ratio = 0.25,    -- minimum percentage of hashes that must match (0.0 - 1.0)
     audio_use_fftw = "no",           -- use libfftw for FFT processing
@@ -1131,7 +1131,7 @@ local function skip_intro_audio()
         local saved_hashes = {} -- hash -> list of times
         local total_intro_hashes = 0
         for l in file:lines() do
-            local h, t = string.match(l, "(%d+) ([%d%.]+)")
+            local h, t = string.match(l, "([%-]?%d+) ([%d%.]+)")
             if h and t then
                 h = tonumber(h)
                 t = tonumber(t)
@@ -1180,6 +1180,7 @@ local function skip_intro_audio()
 
         -- Concurrency State
         local active_workers = 0
+        local processed_count = 0
         local max_workers = options.audio_concurrency
         local next_scan_time = 0
         local results_buffer = {} -- indexed by scan_time

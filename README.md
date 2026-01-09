@@ -18,7 +18,7 @@ When you mark an intro in one episode, the script can search for that same intro
 
 - **ffmpeg** must be in your system `PATH`.
 - **LuaJIT** is highly recommended (standard in most mpv builds).
-- **libfftw3** (optional): Provides faster FFT processing for audio scans.
+- **libfftw3** (optional): Provides faster FFT processing for audio scans (Only windows/linux).
 
 ## Installation
 

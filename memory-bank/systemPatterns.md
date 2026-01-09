@@ -16,15 +16,20 @@ The script is a monolithic Lua script (`main.lua`) that integrates with MPV. It 
 - **Extraction**: FFmpeg extracts raw PCM (`s16le`, mono, 11025Hz).
 - **Processing**:
     - FFT (Stockham Radix-4 or FFTW3) converts time-domain to frequency-domain.
-    - Peak detection identifies the most prominent frequencies.
+    - Peak detection identifies the most prominent frequencies (top 5 per frame).
 - **Hashing**: Pairs of peaks $[f1, f2, \Delta t]$ are combined into a unique 32-bit hash.
-- **Matching**: Uses a histogram of time offsets. The offset with the highest frequency of matches indicates the sync point.
-- **Search Strategy**: Linear scan from the beginning of the file (up to a limit), as audio decoding is relatively cheap.
+- **Inverted Index**: Saved fingerprints are indexed by hash for $O(1)$ lookup during scans.
+- **Matching**:
+    - **Global Offset Histogram**: For every match, $Offset = T_{long\_file} - T_{query}$ is calculated. A true match produces a massive "cluster" at the same offset.
+    - **Match Ratio**: Skips require a minimum percentage of intro hashes to be present (default 25%) to filter false positives from similar music.
+- **Search Strategy**: **Probabilistic Sub-sampling**. Instead of a linear scan, the script extracts short bursts (e.g., 12s) at regular intervals (e.g., 15s).
 
 ## Performance Patterns
+- **Concurrent Worker Pool**: Audio scanning uses multiple parallel FFmpeg subprocesses (configurable via `audio_concurrency`) to maximize CPU utilization.
+- **Ordered Result Processing**: Asynchronous workers pipe results into a buffer that is processed in chronological order to maintain gradient-based early stopping.
+- **Gradient-Based Early Stopping**: Scans terminate immediately after a high-confidence match is detected and the match strength subsequently drops.
 - **LuaJIT FFI**: Critical for performance. Uses C-structs and arrays to avoid Lua garbage collection overhead when handling millions of data points.
 - **Async Subprocesses**: `mp.command_native_async` and coroutines ensure the MPV interface remains responsive during scans.
-- **Memory Management**: Pre-allocated FFI buffers for FFT and hashing.
 
 ## Data Flow
 1. **User Input** (Keybind) $\rightarrow$ **MPV Command**

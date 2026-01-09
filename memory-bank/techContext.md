@@ -27,4 +27,9 @@
 - **Spectrogram Parameters**:
     - Sample Rate: 11025 Hz (sufficient for frequency peaks while minimizing data size).
     - FFT Size: 2048 (balanced frequency resolution).
+- **Probabilistic Scanning**:
+    - Burst Duration: 12s (covers the default 10s intro clip).
+    - Burst Interval: 15s (80% duty cycle for reliable capture).
+- **Concurrency**:
+    - Default: 4 concurrent FFmpeg workers to utilize multicore CPUs.
 - **Planar FFT**: Split-complex layout used in the manual FFT implementation for better cache locality.

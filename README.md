@@ -61,9 +61,13 @@ The script uses two primary methods for fingerprinting:
 ### 2. Audio Fingerprinting (Constellation Hashing)
 - **Algorithm**: Extracts audio using FFmpeg (s16le, mono) and performs FFT to identify peak frequencies in time-frequency bins.
 - **Hashing**: Pairs peaks to form hashes: `[f1][f2][delta_time]`.
-- **Matching**: Uses a histogram of time offsets. The offset with the most matches implies the synchronization point.
-- **Search Strategy**: Audio processing uses a linear scan or large windows.
-- **Optimization**: Unlike video, FFmpeg audio extraction is relatively cheap. The bottleneck is histogram generation and managing the size of data structures. The strategy focuses on managing memory and hash lookup complexity.
+- **Matching**: Uses a **Global Offset Histogram**. Every match calculates $Offset = T_{long\_file} - T_{query}$, and the script looks for the largest cluster (peak) of consistent offsets.
+- **Filtering**: Implements **Match Ratio** filtering (default 25%) to ensure the match is an exact fingerprint overlap rather than just similar-sounding music.
+- **Search Strategy**: **Probabilistic Sub-sampling**. Instead of scanning every millisecond, the script extracts short bursts of fingerprints at regular intervals.
+- **Optimization**: 
+    - **Concurrency**: Launches multiple parallel FFmpeg workers to utilize all CPU cores.
+    - **Inverted Index**: Uses an $O(1)$ hash-map for near-instant lookup of fingerprints during the scan.
+    - **Optimal Stopping**: Scans terminate immediately once a high-confidence match is confirmed and the signal gradient drops.
 
 ## Performance & Technical Details
 

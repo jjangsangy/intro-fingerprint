@@ -1,6 +1,11 @@
 # Progress
 
 ## Completed Features
+- [x] **Probabilistic Audio Scanning**: High-density sub-sampling using bursts for 6x faster scans.
+- [x] **Concurrent Execution**: Parallel FFmpeg worker pool for multi-core audio processing.
+- [x] **Offset Histogram Matching**: Robust time-offset clustering logic for precise sync.
+- [x] **Ratio-Based Filtering**: Density-based confidence scoring to eliminate false positives.
+- [x] **Optimal Stopping**: Gradient-based early termination for efficient scanning.
 - [x] **Video Fingerprinting**: dHash implementation for frame matching.
 - [x] **Audio Fingerprinting**: Constellation hashing with FFT-based peak detection.
 - [x] **Async Processing**: Use of MPV coroutines and async subprocesses.

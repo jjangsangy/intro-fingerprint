@@ -20,9 +20,12 @@ local options = {
     audio_target_t_max = 100,        -- max delay in frames for pairs
     audio_threshold = 10,            -- minimum magnitude for peaks
     audio_scan_limit = 900,          -- max seconds to scan (15 mins)
-    audio_scan_window = 180,         -- sliding window size (3 mins)
     audio_fingerprint_duration = 10, -- duration of the audio fingerprint in seconds
-    audio_use_fftw = "no",       -- use libfftw for FFT processing
+    audio_burst_duration = 12,       -- duration of each scan burst (longer than fingerprint to ensure overlap)
+    audio_burst_interval = 15,       -- interval between scan bursts
+    audio_concurrency = 4,           -- number of concurrent ffmpeg workers
+    audio_min_match_ratio = 0.25,    -- minimum percentage of hashes that must match (0.0 - 1.0)
+    audio_use_fftw = "no",           -- use libfftw for FFT processing
 
     -- Name of the temp files
     video_temp_filename = "mpv_intro_skipper.dat",
@@ -748,8 +751,6 @@ local function process_audio_data(pcm_str)
             end
 
             if fftw_lib then
-                msg.info("FFTW: Initializing processing plan...")
-
                 local samples = ffi.new("double[?]", num_samples)
                 for i = 0, num_samples - 1 do
                     samples[i] = ptr[i] / 32768.0
@@ -784,10 +785,6 @@ local function process_audio_data(pcm_str)
                     end
 
                     fftw_lib.fftwf_execute(plan)
-                    if i == 0 then
-                        msg.info("FFTW: Execution successful for first chunk.")
-                    end
-
                     for k = 0, fft_size / 2 - 1 do
 
                         -- Using squared magnitude to avoid sqrt
@@ -958,8 +955,10 @@ local function save_intro()
             local file_a = io.open(fp_path_a, "wb")
             if file_a then
                 -- Format:
-                -- Line 1: Duration of the capture (offset to skip to)
-                -- Lines 2+: hash time
+                -- Line 1: Header/Version
+                -- Line 2: Duration of the capture (offset to skip to)
+                -- Lines 3+: hash time
+                file_a:write("# INTRO_FINGERPRINT_V1\n")
                 file_a:write(string.format("%.4f\n", dur_a))
 
                 local factor = options.audio_hop_size / options.audio_sample_rate
@@ -1116,54 +1115,53 @@ local function skip_intro_audio()
             return
         end
 
-        -- Load saved hashes
-        local saved_hashes = {} -- hash -> list of times
+        local line = file:read("*line")
+        if line == "# INTRO_FINGERPRINT_V1" then
+            line = file:read("*line")
+        end
 
-        -- Read first line: duration adjustment
-        local dur_line = file:read("*line")
-        local capture_duration = tonumber(dur_line)
-
+        local capture_duration = tonumber(line)
         if not capture_duration then
             mp.osd_message("Invalid audio fingerprint file.", 2)
             file:close()
             return
         end
 
-        local count = 0
-        for line in file:lines() do
-            local h, t = string.match(line, "(%d+) ([%d%.]+)")
+        -- Load saved hashes (Inverted Index)
+        local saved_hashes = {} -- hash -> list of times
+        local total_intro_hashes = 0
+        for l in file:lines() do
+            local h, t = string.match(l, "(%d+) ([%d%.]+)")
             if h and t then
                 h = tonumber(h)
                 t = tonumber(t)
                 if not saved_hashes[h] then saved_hashes[h] = {} end
                 table.insert(saved_hashes[h], t)
-                count = count + 1
+                total_intro_hashes = total_intro_hashes + 1
             end
         end
         file:close()
 
-        if count == 0 then
+        if total_intro_hashes == 0 then
             mp.osd_message("Empty audio fingerprint.", 2)
             return
         end
-        log_info("Loaded " .. count .. " audio hashes. Duration adj: " .. capture_duration)
+        log_info("Loaded " .. total_intro_hashes .. " audio hashes. Duration adj: " .. capture_duration)
 
         scanning = true
         mp.osd_message("Scanning Audio...", 10)
 
-        -- Performance Stats
         local perf_stats = { ffmpeg = 0, lua = 0 }
         local scan_start_time = mp.get_time()
 
-        -- Helper to finish and print stats
         local function finish_scan(message)
             scanning = false
             local total_dur = mp.get_time() - scan_start_time
-            perf_stats.lua = total_dur - perf_stats.ffmpeg
 
             if options.debug == "yes" then
-                msg.info(string.format("TOTAL PERF (Audio): FFmpeg: %.4fs | Lua: %.4fs | Total: %.4fs",
-                    perf_stats.ffmpeg, perf_stats.lua, total_dur))
+                -- Note: FFmpeg CPU time can exceed total wall clock time due to concurrency
+                msg.info(string.format("TOTAL PERF (Audio): Wall Time: %.4fs | FFmpeg CPU Time: %.4fs",
+                    total_dur, perf_stats.ffmpeg))
             end
             if message then mp.osd_message(message, 2) end
         end
@@ -1171,111 +1169,156 @@ local function skip_intro_audio()
         local path = mp.get_property("path")
         local duration = mp.get_property_number("duration") or 0
         local max_scan_time = math.min(duration, options.audio_scan_limit)
-        local cur_time = 0
-        local window = options.audio_scan_window
-        local overlap = options.audio_fingerprint_duration -- Overlap to catch matches on boundaries
 
-        local best_score = 0
-        local best_pos = nil
-        local previous_score = 0
+        -- Global Offset Histogram
+        local global_offset_histogram = {}
+        local time_bin_width = 0.1
+        local factor = options.audio_hop_size / options.audio_sample_rate
 
-        while cur_time < max_scan_time do
-            if not scanning then break end
+        local burst_dur = options.audio_burst_duration
+        local burst_interval = options.audio_burst_interval
 
-            mp.osd_message(string.format("Scanning Audio %d%%...", math.floor(cur_time / max_scan_time * 100)), 1)
+        -- Concurrency State
+        local active_workers = 0
+        local max_workers = options.audio_concurrency
+        local next_scan_time = 0
+        local results_buffer = {} -- indexed by scan_time
+        local stop_flag = false
+        local previous_local_max = 0
+        local last_processed_time = -burst_interval
 
+        local co = coroutine.running()
+
+        local function spawn_worker(scan_time)
+            active_workers = active_workers + 1
             local args = {
                 "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-vn", "-sn",
-                "-ss", tostring(cur_time), "-t", tostring(window),
+                "-ss", tostring(scan_time), "-t", tostring(burst_dur),
                 "-i", path, "-map", "a:0",
                 "-ac", "1", "-ar", tostring(options.audio_sample_rate),
                 "-f", "s16le", "-y", "-"
             }
 
             local ffmpeg_start = mp.get_time()
-            local res = async_subprocess({ args = args })
-            perf_stats.ffmpeg = perf_stats.ffmpeg + (mp.get_time() - ffmpeg_start)
+            mp.command_native_async({ name = "subprocess", args = args, capture_stdout = true },
+                function(success, res, err)
+                    active_workers = active_workers - 1
+                    perf_stats.ffmpeg = perf_stats.ffmpeg + (mp.get_time() - ffmpeg_start)
 
-            if res.status ~= 0 or not res.stdout then
-                break
+                    if success and res.status == 0 and res.stdout and not stop_flag then
+                        local chunk_hashes, ch_count = process_audio_data(res.stdout)
+                        results_buffer[scan_time] = { hashes = chunk_hashes, count = ch_count }
+                    else
+                        results_buffer[scan_time] = { hashes = {}, count = 0 }
+                    end
+
+                    if co then coroutine.resume(co) end
+                end)
+        end
+
+        -- Main Scheduler / Consumer Loop
+        while (next_scan_time < max_scan_time or active_workers > 0) and not stop_flag do
+            -- Spawn workers up to max_workers
+            while active_workers < max_workers and next_scan_time < max_scan_time and not stop_flag do
+                spawn_worker(next_scan_time)
+                next_scan_time = next_scan_time + burst_interval
             end
 
-            if not scanning then break end
+            -- Process completed results in order
+            local target_time = last_processed_time + burst_interval
+            while results_buffer[target_time] do
+                local res = results_buffer[target_time]
+                results_buffer[target_time] = nil -- Clear memory
+                local chunk_hashes = res.hashes
+                local ch_count = res.count
 
-            local chunk_hashes, count = process_audio_data(res.stdout)
+                local local_max = 0
+                local local_histogram = {}
 
-            -- Matching logic
-            local offset_histogram = {}
-            -- Histogram bin size: tolerance 0.1s
-            local time_bin_width = 0.1
-            local factor = options.audio_hop_size / options.audio_sample_rate
-
-            if ffi_status and type(chunk_hashes) == "cdata" then
-                for i = 0, count - 1 do
-                    local ch = chunk_hashes[i]
-                    local track_time = cur_time + (ch.t * factor)
-                    local h = ch.h
-
-                    local saved = saved_hashes[h]
-                    if saved then
-                        for _, fp_time in ipairs(saved) do
-                            local offset = track_time - fp_time
-                            local bin = math.floor(offset / time_bin_width)
-                            offset_histogram[bin] = (offset_histogram[bin] or 0) + 1
+                -- Update Global & Local Histograms
+                if ffi_status and type(chunk_hashes) == "cdata" then
+                    for i = 0, ch_count - 1 do
+                        local ch = chunk_hashes[i]
+                        local track_time = target_time + (ch.t * factor)
+                        local saved = saved_hashes[ch.h]
+                        if saved then
+                            for _, fp_time in ipairs(saved) do
+                                local offset = track_time - fp_time
+                                local bin = math.floor(offset / time_bin_width + 0.5)
+                                global_offset_histogram[bin] = (global_offset_histogram[bin] or 0) + 1
+                                local_histogram[bin] = (local_histogram[bin] or 0) + 1
+                            end
+                        end
+                    end
+                else
+                    for _, ch in ipairs(chunk_hashes) do
+                        local track_time = target_time + (ch.t * factor)
+                        local saved = saved_hashes[ch.h]
+                        if saved then
+                            for _, fp_time in ipairs(saved) do
+                                local offset = track_time - fp_time
+                                local bin = math.floor(offset / time_bin_width + 0.5)
+                                global_offset_histogram[bin] = (global_offset_histogram[bin] or 0) + 1
+                                local_histogram[bin] = (local_histogram[bin] or 0) + 1
+                            end
                         end
                     end
                 end
-            else
-                for _, ch in ipairs(chunk_hashes) do
-                    local track_time = cur_time + (ch.t * factor)
-                    local h = ch.h
 
-                    local saved = saved_hashes[h]
-                    if saved then
-                        for _, fp_time in ipairs(saved) do
-                            local offset = track_time - fp_time
-                            local bin = math.floor(offset / time_bin_width)
-                            offset_histogram[bin] = (offset_histogram[bin] or 0) + 1
-                        end
-                    end
+                for _, cnt in pairs(local_histogram) do
+                    if cnt > local_max then local_max = cnt end
                 end
-            end
 
-            -- Check histogram for peak
-            local local_best_bin = nil
-            local local_max = 0
-            for bin, cnt in pairs(offset_histogram) do
-                if cnt > local_max then
-                    local_max = cnt
-                    local_best_bin = bin
+                local local_ratio = local_max / total_intro_hashes
+                log_info(string.format("Processed burst %.1f: Local max %d (Ratio: %.2f)", target_time, local_max,
+                    local_ratio))
+
+                -- Gradient-based early stopping (Ordered check)
+                -- Only consider matches that meet the minimum match ratio
+                local confidence_threshold = options.audio_threshold * 2.5
+                local meets_ratio = local_ratio >= options.audio_min_match_ratio
+
+                if meets_ratio and local_max > previous_local_max then
+                    previous_local_max = local_max
                 end
+
+                if previous_local_max > confidence_threshold and local_max < (previous_local_max * 0.5) then
+                    log_info(string.format("Gradient drop detected (%d -> %d) at %.1f. Stopping.", previous_local_max,
+                        local_max, target_time))
+                    stop_flag = true
+                    break
+                end
+
+                last_processed_time = target_time
+                target_time = last_processed_time + burst_interval
+                processed_count = processed_count + 1
+                mp.osd_message(string.format("Scanning Audio %d%%...", math.floor(target_time / max_scan_time * 100)), 1)
             end
 
-            log_info(string.format("Chunk %.1f: Max matches %d at bin %s", cur_time, local_max, tostring(local_best_bin)))
-
-            if local_max > options.audio_threshold and local_max > best_score then
-                best_score = local_max
-                local offset = local_best_bin * time_bin_width
-                best_pos = offset + capture_duration
+            if not stop_flag and (next_scan_time < max_scan_time or active_workers > 0) then
+                coroutine.yield()
             end
-
-            -- Gradient based early stopping:
-            -- If previous window had a good match, and current window score dropped, we passed the peak.
-            if previous_score > options.audio_threshold and local_max < previous_score then
-                log_info(string.format("Gradient drop detected (%d -> %d). Stopping scan.", previous_score, local_max))
-                break
-            end
-            previous_score = local_max
-
-            cur_time = cur_time + (window - overlap)
         end
 
         if scanning then
-            if best_pos and best_score > options.audio_threshold then
-                mp.set_property("time-pos", best_pos)
-                finish_scan(string.format("Skipped! (Audio Match: %d)", best_score))
+            -- Find Peak in Global Histogram
+            local best_bin = nil
+            local max_val = 0
+            for bin, cnt in pairs(global_offset_histogram) do
+                if cnt > max_val then
+                    max_val = cnt
+                    best_bin = bin
+                end
+            end
+
+            local best_ratio = max_val / total_intro_hashes
+            if best_bin and max_val > options.audio_threshold and best_ratio >= options.audio_min_match_ratio then
+                local peak_offset = best_bin * time_bin_width
+                local target_pos = peak_offset + capture_duration
+                mp.set_property("time-pos", target_pos)
+                finish_scan(string.format("Skipped! (Score: %d, Ratio: %.2f)", max_val, best_ratio))
             else
-                finish_scan("No audio match found.")
+                finish_scan(string.format("No match (Best Ratio: %.2f)", best_ratio))
             end
         end
     end)

@@ -17,8 +17,17 @@ When you mark an intro in one episode, the script can search for that same intro
 ## Requirements
 
 - **ffmpeg** must be in your system `PATH`.
-- **LuaJIT** is highly recommended (standard in most mpv builds).
-- **libfftw3** (optional): Provides faster FFT processing for audio scans (Only windows/linux).
+- **LuaJIT** is highly recommended. The script uses FFI C-arrays for audio processing to avoid massive Garbage Collection overhead.
+- **'bit' library** (optional): Standard in LuaJIT. Used for faster processing if available.
+- **libfftw3** (optional): Provides faster FFT processing for **audio scans only** (Windows/Linux). It does not affect video fingerprinting performance.
+
+## Usage
+
+1. **Open a video** that contains the intro you want to skip.
+2. **Seek** to the very end of the intro.
+3. **Press `Ctrl+i`** to save the fingerprint. This captures both video frame and audio spectrogram data to temporary files.
+4. **Open another video** (e.g., the next episode).
+5. **Press `Ctrl+s`** (Video scan) or **`Ctrl+Shift+s`** (Audio scan) to find and skip the intro.
 
 ## Installation
 
@@ -41,16 +50,32 @@ When you mark an intro in one episode, the script can search for that same intro
 
 ## How it Works
 
-### Video Fingerprinting (Gradient Hash / dHash)
-- Resizes a frame to 9x8 grayscale and compares adjacent pixels to generate a 64-bit hash.
-- **Matching**: Uses Hamming Distance (count of differing bits).
-- **Strategy**: Uses an expanding window search starting from the timestamp where the intro was originally captured. This minimizes ffmpeg decoding time, which is the primary bottleneck.
+The script uses two primary methods for fingerprinting:
 
-### Audio Fingerprinting (Constellation Hashing)
-- Performs FFT on an audio segment to identify peak frequencies in time-frequency bins.
-- Pairs peaks to form robust hashes: `[f1][f2][delta_time]`.
-- **Matching**: Uses a histogram of time offsets. The offset with the most matches indicates the synchronization point.
-- **Strategy**: Performs a linear scan or large window search. Audio extraction is relatively cheap, so the focus is on efficient hash matching in Lua.
+### 1. Video Fingerprinting (Gradient Hash / dHash)
+- **Algorithm**: Resizes frames to 9x8 grayscale and compares adjacent pixels: if `P(x+1) > P(x)`, the bit is 1, else 0. This generates a 64-bit hash (8 bytes).
+- **Matching**: Uses Hamming Distance (count of differing bits). It is robust against color changes and small aspect ratio variations.
+- **Search Strategy**: The search starts around the timestamp of the saved fingerprint and expands outward.
+- **Optimization**: FFmpeg video decoding is the most expensive part of the pipeline. By assuming the intro is at a similar location (common in episodic content), we avoid decoding the entire stream, resulting in much faster scans.
+
+### 2. Audio Fingerprinting (Constellation Hashing)
+- **Algorithm**: Extracts audio using FFmpeg (s16le, mono) and performs FFT to identify peak frequencies in time-frequency bins.
+- **Hashing**: Pairs peaks to form hashes: `[f1][f2][delta_time]`.
+- **Matching**: Uses a histogram of time offsets. The offset with the most matches implies the synchronization point.
+- **Search Strategy**: Audio processing uses a linear scan or large windows.
+- **Optimization**: Unlike video, FFmpeg audio extraction is relatively cheap. The bottleneck is histogram generation and managing the size of data structures. The strategy focuses on managing memory and hash lookup complexity.
+
+## Performance & Technical Details
+
+The script is heavily optimized for LuaJIT and high-performance processing:
+
+- **Zero-Allocation Data Processing**: Uses **LuaJIT FFI** and custom C-structs for hash generation and spectrogram storage to eliminate millions of Lua table allocations during scanning.
+- **Asynchronous Subprocesses**: Uses coroutines to prevent blocking the player during scanning, allowing for graceful cancellation.
+- **Optimized Audio FFT**:
+    - **libfftw3 Support**: Maximum performance for audio FFT calculations. (Note: This acceleration is specific to the audio fingerprinting path).
+    - **Custom FFI Fallback**: If `libfftw3` is unavailable, it uses an optimized **Stockham Radix-4 Autosort** algorithm (avoiding bit-reversal permutations) and **Mixed-Radix** handling for power-of-2 sizes.
+    - **Cache Optimization**: Uses a planar (split-complex) data layout for efficient memory access.
+    - **Twiddle Caching**: Precomputed trigonometric tables eliminate runtime `sin`/`cos` calls.
 
 ## Configuration
 

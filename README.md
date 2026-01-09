@@ -12,9 +12,9 @@ When you mark an intro in one episode, the script can search for that same intro
 
 ## Installation
 
-1. Copy `main.lua` and the library files (`libfftw3f-3.dll` or `libfftw3f.so`) to your mpv scripts directory:
-   - **Windows**: `%APPDATA%\mpv\scripts\intro-fingerprint\`
-   - **Linux/macOS**: `~/.config/mpv/scripts/intro-fingerprint/`
+1. Copy `main.lua` to your mpv scripts directory:
+   - **Windows**: `%APPDATA%\mpv\scripts\intro-fingerprint\main.lua`
+   - **Linux/macOS**: `~/.config/mpv/scripts/intro-fingerprint/main.lua`
 
 ## Key Bindings
 

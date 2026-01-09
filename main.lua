@@ -808,7 +808,7 @@ local function process_audio_data(pcm_str)
 
                 if lib_name then
                     msg.info("Looking for FFTW library: " .. lib_name)
-                    local path = mp.find_config_file("scripts/intro-fingerprint/" .. lib_name)
+                    local path = mp.find_config_file("scripts/intro-fingerprint/libs/" .. lib_name)
                     if path then
                         msg.info("Found FFTW library at: " .. path)
                         local status, err = pcall(ffi.load, path)

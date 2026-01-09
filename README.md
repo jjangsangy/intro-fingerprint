@@ -12,9 +12,19 @@ When you mark an intro in one episode, the script can search for that same intro
 
 ## Installation
 
-1. Copy `main.lua` to your mpv scripts directory:
-   - **Windows**: `%APPDATA%\mpv\scripts\intro-fingerprint\main.lua`
-   - **Linux/macOS**: `~/.config/mpv/scripts/intro-fingerprint/main.lua`
+1.  **Clone or Download** this repository.
+2.  **Install the script**: Copy the entire directory into your mpv `scripts` folder.
+    - **Windows**: `%APPDATA%\mpv\scripts\intro-fingerprint\`
+    - **Linux/macOS**: `~/.config/mpv/scripts/intro-fingerprint/`
+
+    > **Important**: Do not just copy `main.lua`. The script depends on the `libs/` subdirectory to load `libfftw` for high-performance audio fingerprinting.
+
+3.  **(Optional) Configuration**: 
+    - Copy `intro-fingerprint.conf` to your mpv `script-opts` directory.
+    - To enable the optimized FFTW paths, edit `script-opts/intro-fingerprint.conf` and set:
+      ```ini
+      audio_use_fftw=yes
+      ```
 
 ## Key Bindings
 

@@ -21,8 +21,7 @@ local options = {
     audio_threshold = 10,            -- minimum magnitude for peaks
     audio_scan_limit = 900,          -- max seconds to scan (15 mins)
     audio_fingerprint_duration = 10, -- duration of the audio fingerprint in seconds
-    audio_burst_duration = 20,       -- duration of each scan burst (longer than fingerprint to ensure overlap)
-    audio_burst_interval = 10,       -- interval between scan bursts
+    audio_segment_duration = 20,     -- duration of each scan segment in seconds
     audio_concurrency = 4,           -- number of concurrent ffmpeg workers
     audio_min_match_ratio = 0.25,    -- minimum percentage of hashes that must match (0.0 - 1.0)
     audio_use_fftw = "no",           -- use libfftw for FFT processing
@@ -1175,8 +1174,10 @@ local function skip_intro_audio()
         local time_bin_width = 0.1
         local factor = options.audio_hop_size / options.audio_sample_rate
 
-        local burst_dur = options.audio_burst_duration
-        local burst_interval = options.audio_burst_interval
+        -- Linear Scan Parameters
+        local segment_dur = options.audio_segment_duration
+        -- Padding: enough to cover audio_target_t_max plus FFT window overhead.
+        local padding = math.ceil(options.audio_target_t_max * options.audio_hop_size / options.audio_sample_rate) + 1.0
 
         -- Concurrency State
         local active_workers = 0
@@ -1186,7 +1187,7 @@ local function skip_intro_audio()
         local results_buffer = {} -- indexed by scan_time
         local stop_flag = false
         local previous_local_max = 0
-        local last_processed_time = -burst_interval
+        local last_processed_time = -segment_dur
 
         local co = coroutine.running()
 
@@ -1194,7 +1195,7 @@ local function skip_intro_audio()
             active_workers = active_workers + 1
             local args = {
                 "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-vn", "-sn",
-                "-ss", tostring(scan_time), "-t", tostring(burst_dur),
+                "-ss", tostring(scan_time), "-t", tostring(segment_dur + padding),
                 "-i", path, "-map", "a:0",
                 "-ac", "1", "-ar", tostring(options.audio_sample_rate),
                 "-f", "s16le", "-y", "-"
@@ -1222,11 +1223,11 @@ local function skip_intro_audio()
             -- Spawn workers up to max_workers
             while active_workers < max_workers and next_scan_time < max_scan_time and not stop_flag do
                 spawn_worker(next_scan_time)
-                next_scan_time = next_scan_time + burst_interval
+                next_scan_time = next_scan_time + segment_dur
             end
 
             -- Process completed results in order
-            local target_time = last_processed_time + burst_interval
+            local target_time = last_processed_time + segment_dur
             while results_buffer[target_time] do
                 local res = results_buffer[target_time]
                 results_buffer[target_time] = nil -- Clear memory
@@ -1237,30 +1238,38 @@ local function skip_intro_audio()
                 local local_histogram = {}
 
                 -- Update Global & Local Histograms
+                -- Linear Scan Rule: Only accept hashes anchored within the segment [target_time, target_time + segment_dur)
                 if ffi_status and type(chunk_hashes) == "cdata" then
                     for i = 0, ch_count - 1 do
                         local ch = chunk_hashes[i]
-                        local track_time = target_time + (ch.t * factor)
-                        local saved = saved_hashes[ch.h]
-                        if saved then
-                            for _, fp_time in ipairs(saved) do
-                                local offset = track_time - fp_time
-                                local bin = math.floor(offset / time_bin_width + 0.5)
-                                global_offset_histogram[bin] = (global_offset_histogram[bin] or 0) + 1
-                                local_histogram[bin] = (local_histogram[bin] or 0) + 1
+                        local rel_time = ch.t * factor
+                        -- Filter: Ignore hashes that belong to the next segment's padding overlap
+                        if rel_time < segment_dur then
+                            local track_time = target_time + rel_time
+                            local saved = saved_hashes[ch.h]
+                            if saved then
+                                for _, fp_time in ipairs(saved) do
+                                    local offset = track_time - fp_time
+                                    local bin = math.floor(offset / time_bin_width + 0.5)
+                                    global_offset_histogram[bin] = (global_offset_histogram[bin] or 0) + 1
+                                    local_histogram[bin] = (local_histogram[bin] or 0) + 1
+                                end
                             end
                         end
                     end
                 else
                     for _, ch in ipairs(chunk_hashes) do
-                        local track_time = target_time + (ch.t * factor)
-                        local saved = saved_hashes[ch.h]
-                        if saved then
-                            for _, fp_time in ipairs(saved) do
-                                local offset = track_time - fp_time
-                                local bin = math.floor(offset / time_bin_width + 0.5)
-                                global_offset_histogram[bin] = (global_offset_histogram[bin] or 0) + 1
-                                local_histogram[bin] = (local_histogram[bin] or 0) + 1
+                        local rel_time = ch.t * factor
+                        if rel_time < segment_dur then
+                            local track_time = target_time + rel_time
+                            local saved = saved_hashes[ch.h]
+                            if saved then
+                                for _, fp_time in ipairs(saved) do
+                                    local offset = track_time - fp_time
+                                    local bin = math.floor(offset / time_bin_width + 0.5)
+                                    global_offset_histogram[bin] = (global_offset_histogram[bin] or 0) + 1
+                                    local_histogram[bin] = (local_histogram[bin] or 0) + 1
+                                end
                             end
                         end
                     end
@@ -1271,7 +1280,7 @@ local function skip_intro_audio()
                 end
 
                 local local_ratio = local_max / total_intro_hashes
-                log_info(string.format("Processed burst %.1f: Local max %d (Ratio: %.2f)", target_time, local_max,
+                log_info(string.format("Processed segment %.1f: Local max %d (Ratio: %.2f)", target_time, local_max,
                     local_ratio))
 
                 -- Gradient-based early stopping (Ordered check)
@@ -1291,7 +1300,7 @@ local function skip_intro_audio()
                 end
 
                 last_processed_time = target_time
-                target_time = last_processed_time + burst_interval
+                target_time = last_processed_time + segment_dur
                 processed_count = processed_count + 1
                 mp.osd_message(string.format("Scanning Audio %d%%...", math.floor(target_time / max_scan_time * 100)), 1)
             end

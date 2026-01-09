@@ -22,7 +22,7 @@ The script is a monolithic Lua script (`main.lua`) that integrates with MPV. It 
 - **Matching**:
     - **Global Offset Histogram**: For every match, $Offset = T_{long\_file} - T_{query}$ is calculated. A true match produces a massive "cluster" at the same offset.
     - **Match Ratio**: Skips require a minimum percentage of intro hashes to be present (default 25%) to filter false positives from similar music.
-- **Search Strategy**: **Probabilistic Sub-sampling**. Instead of a linear scan, the script extracts short bursts (e.g., 12s) at regular intervals (e.g., 15s).
+- **Search Strategy**: **Concurrent Linear Scan**. The timeline is divided into contiguous segments (e.g., 20s). Each segment is processed by a concurrent worker with sufficient padding to ensure no matches are lost at segment boundaries. Hashes are filtered to prevent double-counting in overlapping regions.
 
 ## Performance Patterns
 - **Concurrent Worker Pool**: Audio scanning uses multiple parallel FFmpeg subprocesses (configurable via `audio_concurrency`) to maximize CPU utilization.

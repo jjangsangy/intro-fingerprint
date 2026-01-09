@@ -63,7 +63,7 @@ The script uses two primary methods for fingerprinting:
 - **Hashing**: Pairs peaks to form hashes: `[f1][f2][delta_time]`.
 - **Matching**: Uses a **Global Offset Histogram**. Every match calculates $Offset = T_{long\_file} - T_{query}$, and the script looks for the largest cluster (peak) of consistent offsets.
 - **Filtering**: Implements **Match Ratio** filtering (default 25%) to ensure the match is an exact fingerprint overlap rather than just similar-sounding music.
-- **Search Strategy**: **Probabilistic Sub-sampling**. Instead of scanning every millisecond, the script extracts short bursts of fingerprints at regular intervals.
+- **Search Strategy**: **Concurrent Linear Scan**. The script divides the audio into contiguous segments and processes them in parallel to ensure 100% coverage.
 - **Optimization**: 
     - **Concurrency**: Launches multiple parallel FFmpeg workers to utilize all CPU cores.
     - **Inverted Index**: Uses an $O(1)$ hash-map for near-instant lookup of fingerprints during the scan.
@@ -99,8 +99,7 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 | `audio_concurrency` | `4` | Number of parallel FFmpeg workers for audio scanning. |
 | `audio_scan_limit` | `900` | Maximum seconds of the file to scan for audio matches. |
 | `audio_sample_rate` | `11025` | Sample rate for audio extraction. |
-| `audio_burst_duration` | `12` | Duration (seconds) of each audio scan burst. |
-| `audio_burst_interval` | `15` | Interval (seconds) between the start of audio scan bursts. |
+| `audio_segment_duration` | `20` | Duration (seconds) of each audio scan segment. |
 | `audio_fingerprint_duration`| `10` | Duration (seconds) of the audio fingerprint to capture. |
 | `audio_fft_size` | `2048` | FFT size for audio processing. |
 | `audio_hop_size` | `1024` | Hop size (overlap) between FFT frames. |

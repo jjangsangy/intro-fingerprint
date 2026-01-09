@@ -6,10 +6,11 @@ The script is in a functional and feature-complete state for its primary goal of
 ## Recent Changes
 - Initial project analysis and documentation (Memory Bank creation).
 - Implementation of a Docker-based multi-stage build system for `libfftw3f` shared objects.
-- Replaced Windows FFTW3 compilation with pre-compiled binaries in `Dockerfile` to fix build failures.
+- Successfully implemented MinGW-w64 cross-compilation for FFTW in `Dockerfile`, following MSYS2 `PKGBUILD` methodology.
+- Resolved CMake version compatibility and cross-compiler toolchain issues during the build process.
 
 ## Current Focus
-- Maintenance and final verification of the build system.
+- Verifying the final export of cross-compiled DLLs to the local `libs/` directory.
 
 ## Active Decisions
 - **FFT Implementation**: Currently supports both a fallback Stockham Radix-4 (FFI) and a high-performance FFTW3 library via FFI.

@@ -10,7 +10,7 @@
 
 ## In Progress
 - [x] Initial Memory Bank Documentation.
-- [ ] **Dockerized Build System**: Multi-stage Dockerfile for cross-compiling `libfftw3f`.
+- [x] **Dockerized Build System**: Multi-stage Dockerfile for `libfftw3f` (Linux build + Windows download).
 
 ## Future Roadmap
 - [ ] **Persistent Fingerprints**: Moving beyond temp files to a user-specified database or local directory.

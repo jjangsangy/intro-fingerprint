@@ -41,6 +41,18 @@ When you mark an intro in one episode, the script can search for that same intro
 - Implements asynchronous subprocesses to prevent the player from freezing while scanning.
 - Supports **libfftw3** for maximum FFT performance.
 
+## Building FFTW Libraries
+
+The project includes a `Dockerfile` for building the required shared libraries (`libfftw3f.so` for Linux and `libfftw3f-3.dll` for Windows).
+
+To build and extract the libraries:
+
+```bash
+docker build --output type=local,dest=. .
+```
+
+This will populate the `libs/` directory with the appropriate binaries for both platforms.
+
 ## License
 
 MIT

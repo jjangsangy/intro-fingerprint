@@ -6,9 +6,10 @@ The script is in a functional and feature-complete state for its primary goal of
 ## Recent Changes
 - Initial project analysis and documentation (Memory Bank creation).
 - Implementation of a Docker-based multi-stage build system for `libfftw3f` shared objects.
+- Replaced Windows FFTW3 compilation with pre-compiled binaries in `Dockerfile` to fix build failures.
 
 ## Current Focus
-- Building and cross-compiling `libfftw3f` for Linux and Windows using Docker and Arch Linux.
+- Maintenance and final verification of the build system.
 
 ## Active Decisions
 - **FFT Implementation**: Currently supports both a fallback Stockham Radix-4 (FFI) and a high-performance FFTW3 library via FFI.

@@ -23,14 +23,6 @@ When you mark an intro in one episode, the script can search for that same intro
 - **'bit' library** (optional): Standard in LuaJIT. Used for faster processing if available.
 - **libfftw3** (optional): Provides faster FFT processing for **audio scans only** (Windows/Linux). It does not affect video fingerprinting performance.
 
-## Usage
-
-1. **Open a video** that contains the intro you want to skip.
-2. **Seek** to the very end of the intro.
-3. **Press `Ctrl+i`** to save the fingerprint. This captures both video frame and audio spectrogram data to temporary files.
-4. **Open another video** (e.g., the next episode).
-5. **Press `Ctrl+s`** (Video scan) or **`Ctrl+Shift+s`** (Audio scan) to find and skip the intro.
-
 ## Installation
 
 1.  **Clone or Download** this repository.
@@ -43,6 +35,14 @@ When you mark an intro in one episode, the script can search for that same intro
 3.  **(Optional) Configuration**: 
     - Copy `intro-fingerprint.conf` to your mpv `script-opts` directory.
     - To enable the optimized FFTW paths, edit `script-opts/intro-fingerprint.conf` and set `audio_use_fftw=yes`.
+
+## Usage
+
+1. **Open a video** that contains the intro you want to skip.
+2. **Seek** to the very end of the intro.
+3. **Press `Ctrl+i`** to save the fingerprint. This captures both video frame and audio spectrogram data to temporary files.
+4. **Open another video** (e.g., the next episode).
+5. **Press `Ctrl+s`** (Video scan) or **`Ctrl+Shift+s`** (Audio scan) to find and skip the intro.
 
 ## Key Bindings
 

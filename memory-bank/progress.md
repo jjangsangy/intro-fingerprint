@@ -1,7 +1,7 @@
 # Progress
 
 ## Completed Features
-- [x] **Probabilistic Audio Scanning**: High-density sub-sampling using bursts for 6x faster scans.
+- [x] **Concurrent Linear Audio Scanning**: Replaced probabilistic bursts with a chunked linear scan for 100% coverage and maximum reliability.
 - [x] **Concurrent Execution**: Parallel FFmpeg worker pool for multi-core audio processing.
 - [x] **Offset Histogram Matching**: Robust time-offset clustering logic for precise sync.
 - [x] **Ratio-Based Filtering**: Density-based confidence scoring to eliminate false positives.

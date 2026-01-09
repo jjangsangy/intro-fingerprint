@@ -1,4 +1,4 @@
-# mpv-intro-fingerprint
+# intro-fingerprint
 
 An MPV script to skip intro sequences in videos by fingerprinting audio and video.
 

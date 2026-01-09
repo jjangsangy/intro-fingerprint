@@ -1,5 +1,7 @@
 # intro-fingerprint
 
+![intro-fingerprint](assets/header.svg)
+
 An MPV script to skip intro sequences in videos by fingerprinting audio and video.
 
 When you mark an intro in one episode, the script can search for that same intro in other episodes (using either video or audio matching) and skip it automatically.

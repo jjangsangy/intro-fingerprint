@@ -907,6 +907,8 @@ local function save_intro()
         return
     end
 
+    mp.osd_message("Generating fingerprints...", 120)
+
     -- --- VIDEO SAVE ---
     local fp_path_v = get_video_fingerprint_path()
     log_info("Saving video fingerprint to: " .. fp_path_v)

@@ -30,8 +30,6 @@ When you mark an intro in one episode, the script can search for that same intro
     - **Windows**: `%APPDATA%\mpv\scripts\intro-fingerprint\`
     - **Linux/macOS**: `~/.config/mpv/scripts/intro-fingerprint/`
 
-    > **Important**: The script depends on the `libs/` subdirectory to load `libfftw` for high-performance audio fingerprinting.
-
 3.  **(Optional) Configuration**: 
     - Copy `intro-fingerprint.conf` to your mpv `script-opts` directory.
     - To enable the optimized FFTW paths, edit `script-opts/intro-fingerprint.conf` and set `audio_use_fftw=yes`.

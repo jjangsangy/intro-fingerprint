@@ -2,14 +2,14 @@
 
 ![intro-fingerprint](assets/header.svg)
 
-An MPV script to skip intro sequences in videos by fingerprinting audio and video.
+An MPV script to skip intro sequences in media by fingerprinting audio and video.
 
 When you mark an intro in one episode, the script can search for that same intro in other episodes (using either video or audio matching) and skip it automatically.
 
 ## Features
 
+- **Audio Fingerprinting**: Uses Constellation Hashing to find identical audio patterns, robust to video variations. **(Recommended/Default)**
 - **Video Fingerprinting**: Uses Gradient Hashing (dHash) to find visually similar intros.
-- **Audio Fingerprinting**: Uses Constellation Hashing to find identical audio patterns, robust to video variations.
 - **High Performance**: 
   - Uses **LuaJIT FFI** for zero-allocation data processing to handle large audio/video datasets efficiently.
   - Optional **libfftw3** support for accelerated FFT calculations.
@@ -40,13 +40,14 @@ When you mark an intro in one episode, the script can search for that same intro
 2. **Seek** to the very end of the intro.
 3. **Press `Ctrl+i`** to save the fingerprint. This captures both video frame and audio spectrogram data to temporary files.
 4. **Open another video** (e.g., the next episode).
-5. **Press `Ctrl+s`** (Video scan) or **`Ctrl+Shift+s`** (Audio scan) to find and skip the intro.
+5. **Press `Ctrl+s`** (Audio scan) or **`Ctrl+Shift+s`** (Video scan) to find and skip the intro.
 
 ## Key Bindings
 
 - `Ctrl+i`: **Save Intro**. Captures the current timestamp as the intro fingerprint (saves video frame and audio data to temp files).
-- `Ctrl+s`: **Skip Intro (Video)**. Scans the current video for a match based on the saved video fingerprint.
-- `Ctrl+Shift+s`: **Skip Intro (Audio)**. Scans the audio stream for a match based on the saved audio fingerprint.
+- `Ctrl+s`: **Skip Intro (Audio)**. Scans the audio stream for a match based on the saved audio fingerprint.
+  - *Note: Audio fingerprinting is significantly faster and is the default method. However, if the intro music changes between episodes while the video remains the same, use Video Skip instead.*
+- `Ctrl+Shift+s`: **Skip Intro (Video)**. Scans the current video for a match based on the saved video fingerprint.
 
 ## How it Works
 
@@ -103,6 +104,9 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 | `audio_fingerprint_duration`| `10` | Duration (seconds) of the audio fingerprint to capture. |
 | `audio_fft_size` | `2048` | FFT size for audio processing. |
 | `audio_hop_size` | `1024` | Hop size (overlap) between FFT frames. |
+| `key_save_intro` | `Ctrl+i` | Key binding to save the intro fingerprint. |
+| `key_skip_video` | `Ctrl+Shift+s` | Key binding to skip using video fingerprinting. |
+| `key_skip_audio` | `Ctrl+s` | Key binding to skip using audio fingerprinting. |
 
 ## Troubleshooting
 

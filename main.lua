@@ -29,6 +29,11 @@ local options = {
     -- Name of the temp files
     video_temp_filename = "mpv_intro_skipper.dat",
     audio_temp_filename = "mpv_intro_skipper_audio.dat",
+
+    -- Key Bindings
+    key_save_intro = "Ctrl+i",
+    key_skip_video = "Ctrl+Shift+s",
+    key_skip_audio = "Ctrl+s",
 }
 
 local mp = require 'mp'
@@ -1334,6 +1339,6 @@ local function skip_intro_audio()
     end)
 end
 
-mp.add_key_binding("Ctrl+i", "save-intro", save_intro)
-mp.add_key_binding("Ctrl+s", "skip-intro-video", skip_intro_video)
-mp.add_key_binding("Ctrl+Shift+s", "skip-intro-audio", skip_intro_audio)
+mp.add_key_binding(options.key_save_intro, "save-intro", save_intro)
+mp.add_key_binding(options.key_skip_video, "skip-intro-video", skip_intro_video)
+mp.add_key_binding(options.key_skip_audio, "skip-intro-audio", skip_intro_audio)

@@ -9,7 +9,7 @@ A high-performance MPV script designed to automatically skip intro sequences in 
 - Minimize performance overhead using LuaJIT FFI and FFmpeg for data extraction.
 
 ## Key Features
-- **Video Skip (`Ctrl+s`)**: Scans for a match based on a 64-bit dHash of a video frame.
-- **Audio Skip (`Ctrl+Shift+s`)**: Scans for a match based on audio spectrogram peaks and time-offset histograms.
+- **Audio Skip (`Ctrl+s`)**: Scans for a match based on audio spectrogram peaks and time-offset histograms. (Recommended/Default)
+- **Video Skip (`Ctrl+Shift+s`)**: Scans for a match based on a 64-bit dHash of a video frame.
 - **Intro Capture (`Ctrl+i`)**: Saves the current frame and preceding audio segment as reference fingerprints.
 - **Async Execution**: Non-blocking scans using mpv coroutines and async subprocesses.

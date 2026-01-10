@@ -4,14 +4,14 @@
 The script is in a functional and feature-complete state for its primary goal of skipping intros using video or audio fingerprinting.
 
 ## Recent Changes
+- **UX Update**: Swapped default key bindings. Audio skip is now the primary method (`Ctrl+s`) due to speed, while Video skip (`Ctrl+Shift+s`) is the robust fallback.
+- **Configuration**: Made key bindings fully configurable in `intro-fingerprint.conf`.
 - **Refactored Audio Scanning**: Implemented concurrent linear scan with chunked segments and global offset histogram matching. Replaced probabilistic sub-sampling to ensure 100% coverage while maintaining performance.
 - **Implemented Concurrency**: Parallelized audio scanning using a worker pool of FFmpeg subprocesses.
 - **Improved Skip Reliability**: Added match ratio filtering and high-confidence optimal stopping thresholds to eliminate false positives.
-- **Cleanup**: Removed obsolete linear scan logic and configurations.
-- Successfully implemented MinGW-w64 cross-compilation for FFTW in `Dockerfile`.
 
 ## Current Focus
-- Stabilizing the new concurrent linear audio scan logic across different media types.
+- User feedback and stability improvements.
 
 ## Active Decisions
 - **FFT Implementation**: Currently supports both a fallback Stockham Radix-4 (FFI) and a high-performance FFTW3 library via FFI.

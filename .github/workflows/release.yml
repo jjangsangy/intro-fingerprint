@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create Artifact Directory
+        run: |
+          mkdir -p staging/scripts/intro-fingerprint
+          mkdir -p staging/script-opts
+          
+          # Copy main script and libs to the script-specific subdirectory
+          cp main.lua staging/scripts/intro-fingerprint/
+          cp -r libs staging/scripts/intro-fingerprint/
+          
+          # Copy config to script-opts
+          cp intro-fingerprint.conf staging/script-opts/
+          
+          # Copy LICENSE and README.md to the root
+          cp LICENSE staging/
+          cp README.md staging/
+
+      - name: Create Tarball
+        run: |
+          cd staging
+          tar -czvf ../intro-fingerprint.tar.gz .
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: intro-fingerprint.tar.gz
+          generate_release_notes: true

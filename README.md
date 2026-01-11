@@ -21,7 +21,7 @@ When you mark an intro in one episode, the script can search for that same intro
 - **ffmpeg** must be in your system `PATH`. ([Install instructions](#install-ffmpeg))
 - **LuaJIT** is highly recommended. The script uses FFI C-arrays for audio processing to avoid massive Garbage Collection overhead (standard in mpv).
 - **'bit' library** (optional): Standard in LuaJIT. Used for faster processing if available.
-- **libfftw3** (optional): Provides faster FFT processing for **audio scans only** (Windows/Linux). It does not affect video fingerprinting performance. (provided in repo, or [build it yourself](#building-fftw-libraries))
+- **libfftw3** (optional): Provides faster FFT processing for **audio scans only** (x86 Windows/Linux Only) Provided in repo, or [build it yourself](#building-fftw-libraries).
 
 ## Installation
 

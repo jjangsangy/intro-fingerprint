@@ -132,6 +132,8 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 | `audio_fingerprint_duration` | `10`    | Duration (seconds) of the audio fingerprint to capture.                     |
 | `audio_fft_size`             | `2048`  | FFT size for audio processing.                                              |
 | `audio_hop_size`             | `1024`  | Hop size (overlap) between FFT frames.                                      |
+| `audio_target_t_min`         | `10`    | Minimum delay in frames for peak pairs in constellation hashing.            |
+| `audio_target_t_max`         | `100`   | Maximum delay in frames for peak pairs in constellation hashing.            |
 | `audio_use_fftw`             | `no`    | Use `libfftw3` for faster audio FFT processing.                             |
 
 ## Video Options
@@ -155,14 +157,6 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 | `key_save_intro` | `Ctrl+i`       | Key binding to save the intro fingerprint.      |
 | `key_skip_video` | `Ctrl+Shift+s` | Key binding to skip using video fingerprinting. |
 | `key_skip_audio` | `Ctrl+s`       | Key binding to skip using audio fingerprinting. |
-
-# Troubleshooting
-
-- **"FFmpeg failed during scan"**: Ensure `ffmpeg` is in your system PATH and accessible by mpv.
-- **No match found**: 
-  - For Video: Try increasing `video_threshold` or ensure the intro is visually similar.
-  - For Audio: Ensure the intro has consistent music/audio.
-- **Slow Scans**: Enable `audio_use_fftw` and ensure you are using LuaJIT (standard in most mpv builds).
 
 # Install FFmpeg
 
@@ -207,6 +201,13 @@ sudo dnf install ffmpeg
 ```bash
 sudo pacman -S ffmpeg
 ```
+# Troubleshooting
+
+- **"FFmpeg failed during scan"**: Ensure `ffmpeg` is in your system PATH and accessible by mpv.
+- **No match found**: 
+  - For Video: Try increasing `video_threshold` or ensure the intro is visually similar.
+  - For Audio: Ensure the intro has consistent music/audio.
+- **Slow Scans**: Enable `audio_use_fftw` and ensure you are using LuaJIT (standard in most mpv builds).
 
 # Building FFTW Libraries
 

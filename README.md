@@ -8,7 +8,7 @@ When you mark an intro in one episode, the script can search for that same intro
 
 # Features
 
-- **Audio Fingerprinting**: Uses Constellation Hashing to find identical audio patterns, robust to video variations. **(Recommended/Default)**
+- **Audio Fingerprinting**: Uses Constellation Hashing to find identical audio patterns, robust to noise and distortion. **(Recommended/Default)**
 - **Video Fingerprinting**: Uses Gradient Hashing (dHash) to find visually similar intros.
 - **High Performance**: 
   - Uses **LuaJIT FFI** for zero-allocation data processing to handle large audio/video datasets efficiently.

@@ -6,7 +6,7 @@ An MPV script to skip intro sequences in media by fingerprinting audio and video
 
 When you mark an intro in one episode, the script can search for that same intro in other episodes (using either video or audio matching) and skip it automatically.
 
-## Features
+# Features
 
 - **Audio Fingerprinting**: Uses Constellation Hashing to find identical audio patterns, robust to video variations. **(Recommended/Default)**
 - **Video Fingerprinting**: Uses Gradient Hashing (dHash) to find visually similar intros.
@@ -16,14 +16,14 @@ When you mark an intro in one episode, the script can search for that same intro
 - **Async Execution**: Scans run in the background using mpv coroutines and async subprocesses, ensuring the player remains responsive.
 - **Cross-Platform**: Supports Windows, Linux, and macOS (with appropriate dependencies).
 
-## Requirements
+# Requirements
 
 - **ffmpeg** (required) must be in your system `PATH`. ([Install instructions](#install-ffmpeg))
 - **LuaJIT** (optional) is highly recommended. The script uses FFI C-arrays for audio processing to avoid massive Garbage Collection overhead (standard in mpv).
 - **'bit' library** (optional): Standard in LuaJIT. Used for faster processing if available.
 - **libfftw3** (optional): Provides faster FFT processing for **audio scans only** (Windows, Linux, and macOS M-series [Experimental]). Pre-built binaries provided in `libs/`, or [build it yourself](#building-fftw-libraries).
 
-## Installation
+# Installation
 
 1.  **Clone or Download** this repository.
 2.  **Install the script**: Copy the entire directory into your mpv `scripts` folder. The folder **must** be named `intro-fingerprint`.
@@ -34,7 +34,7 @@ When you mark an intro in one episode, the script can search for that same intro
     - Copy `intro-fingerprint.conf` to your mpv `script-opts` directory.
     - To enable the optimized FFTW paths, edit `script-opts/intro-fingerprint.conf` and set `audio_use_fftw=yes`.
 
-## Usage
+# Usage
 
 1. **Open a video** that contains the intro you want to skip.
 2. **Seek** to the very end of the intro.
@@ -42,18 +42,18 @@ When you mark an intro in one episode, the script can search for that same intro
 4. **Open another video** (e.g., the next episode).
 5. **Press `Ctrl+s`** (Audio scan) or **`Ctrl+Shift+s`** (Video scan) to find and skip the intro.
 
-## Key Bindings
+# Key Bindings
 
 - `Ctrl+i`: **Save Intro**. Captures the current timestamp as the intro fingerprint (saves video frame and audio data to temp files).
 - `Ctrl+s`: **Skip Intro (Audio)**. Scans the audio stream for a match based on the saved audio fingerprint.
   - *Note: Audio fingerprinting is significantly faster and is the default method. However, if the intro music changes between episodes while the video remains the same, use Video Skip instead.*
 - `Ctrl+Shift+s`: **Skip Intro (Video)**. Scans the current video for a match based on the saved video fingerprint.
 
-## How it Works
+# How it Works
 
 The script uses two primary methods for fingerprinting:
 
-### 1. Audio Fingerprinting (Constellation Hashing)
+## 1. Audio Fingerprinting (Constellation Hashing)
 - **Algorithm**: Extracts audio using FFmpeg (s16le, mono) and performs FFT to identify peak frequencies in time-frequency bins.
 - **Hashing**: Pairs peaks to form hashes: `[f1][f2][delta_time]`.
 - **Matching**: Uses a **Global Offset Histogram**. Every match calculates $Offset = T_{long\_file} - T_{query}$, and the script looks for the largest cluster (peak) of consistent offsets.
@@ -64,13 +64,13 @@ The script uses two primary methods for fingerprinting:
     - **Inverted Index**: Uses an $O(1)$ hash-map for near-instant lookup of fingerprints during the scan.
     - **Optimal Stopping**: Scans terminate immediately once a high-confidence match is confirmed and the signal gradient drops.
 
-### 2. Video Fingerprinting (Gradient Hash / dHash)
+## 2. Video Fingerprinting (Gradient Hash / dHash)
 - **Algorithm**: Resizes frames to 9x8 grayscale and compares adjacent pixels: if `P(x+1) > P(x)`, the bit is 1, else 0. This generates a 64-bit hash (8 bytes).
 - **Matching**: Uses Hamming Distance (count of differing bits). It is robust against color changes and small aspect ratio variations.
 - **Search Strategy**: The search starts around the timestamp of the saved fingerprint and expands outward.
 - **Optimization**: FFmpeg video decoding is the most expensive part of the pipeline. By assuming the intro is at a similar location (common in episodic content), we avoid decoding the entire stream, resulting in much faster scans.
 
-## Performance & Technical Details
+# Performance & Technical Details
 
 The script is heavily optimized for LuaJIT and high-performance processing:
 
@@ -82,16 +82,16 @@ The script is heavily optimized for LuaJIT and high-performance processing:
     - **Cache Optimization**: Uses a planar (split-complex) data layout for efficient memory access.
     - **Twiddle Caching**: Precomputed trigonometric tables eliminate runtime `sin`/`cos` calls.
 
-## Configuration
+# Configuration
 
 You can customize the script by creating `intro-fingerprint.conf` in your mpv `script-opts` folder.
 
-### General
+## General
 | Option  | Default | Description                                                        |
 | :------ | :------ | :----------------------------------------------------------------- |
 | `debug` | `no`    | Enable console debug printing for performance stats and scan info. |
 
-### Audio Options
+## Audio Options
 | Option                       | Default | Description                                                                 |
 | :--------------------------- | :------ | :-------------------------------------------------------------------------- |
 | `audio_threshold`            | `10`    | Minimum magnitude for frequency peaks and minimum matches for a valid skip. |
@@ -105,7 +105,7 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 | `audio_hop_size`             | `1024`  | Hop size (overlap) between FFT frames.                                      |
 | `audio_use_fftw`             | `no`    | Use `libfftw3` for faster audio FFT processing.                             |
 
-### Video Options
+## Video Options
 | Option                    | Default | Description                                                       |
 | :------------------------ | :------ | :---------------------------------------------------------------- |
 | `video_threshold`         | `12`    | Tolerance for Hamming Distance (0-64). Lower is stricter.         |
@@ -114,20 +114,20 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 | `video_max_search_window` | `300`   | Maximum seconds to expand the search window.                      |
 | `video_window_step`       | `30`    | Step size (seconds) when expanding the video search window.       |
 
-### File Paths
+## File Paths
 | Option                | Default                       | Description                      |
 | :-------------------- | :---------------------------- | :------------------------------- |
 | `audio_temp_filename` | `mpv_intro_skipper_audio.dat` | Name of temp file used for audio |
 | `video_temp_filename` | `mpv_intro_skipper.dat`       | Name of temp file used for video |
 
-### Key Bindings
+## Key Bindings
 | Option           | Default        | Description                                     |
 | :--------------- | :------------- | :---------------------------------------------- |
 | `key_save_intro` | `Ctrl+i`       | Key binding to save the intro fingerprint.      |
 | `key_skip_video` | `Ctrl+Shift+s` | Key binding to skip using video fingerprinting. |
 | `key_skip_audio` | `Ctrl+s`       | Key binding to skip using audio fingerprinting. |
 
-## Troubleshooting
+# Troubleshooting
 
 - **"FFmpeg failed during scan"**: Ensure `ffmpeg` is in your system PATH and accessible by mpv.
 - **No match found**: 
@@ -135,11 +135,11 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
   - For Audio: Ensure the intro has consistent music/audio.
 - **Slow Scans**: Enable `audio_use_fftw` and ensure you are using LuaJIT (standard in most mpv builds).
 
-## Install FFmpeg
+# Install FFmpeg
 
 This script relies on `ffmpeg` being available in your system's `PATH`.
 
-### Windows
+## Windows
 Using a package manager (recommended):
 
 **Winget**:
@@ -157,13 +157,13 @@ choco install ffmpeg
 scoop install ffmpeg
 ```
 
-### macOS
+## macOS
 Using Homebrew:
 ```bash
 brew install ffmpeg
 ```
 
-### Linux
+## Linux
 **Debian/Ubuntu**:
 ```bash
 sudo apt update && sudo apt install ffmpeg
@@ -179,7 +179,7 @@ sudo dnf install ffmpeg
 sudo pacman -S ffmpeg
 ```
 
-## Building FFTW Libraries
+# Building FFTW Libraries
 
 The project includes a `Dockerfile` for building the required shared libraries:
 - `libfftw3f.so` (Linux)
@@ -193,6 +193,6 @@ docker build --output type=local,dest=. .
 This will populate the `libs/` directory with the appropriate binaries.
 
 
-## License
+# License
 
 MIT

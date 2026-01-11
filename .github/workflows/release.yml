@@ -30,13 +30,16 @@ jobs:
           cp LICENSE staging/
           cp README.md staging/
 
-      - name: Create Tarball
+      - name: Create Archives
         run: |
           cd staging
           tar -czvf ../intro-fingerprint.tar.gz .
+          zip -r ../intro-fingerprint.zip .
 
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          files: intro-fingerprint.tar.gz
+          files: |
+            intro-fingerprint.tar.gz
+            intro-fingerprint.zip
           generate_release_notes: true

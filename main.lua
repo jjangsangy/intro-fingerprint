@@ -773,7 +773,7 @@ local function process_audio_data(pcm_str)
                 local fft_out_c = ffi.cast("fftwf_complex*", fft_out)
 
                 -- FFTW_FORWARD = -1, FFTW_ESTIMATE = 64
-                local plan = fftw_lib.fftwf_plan_dft_1d(fft_size, fft_in_c, fft_out_c, -1, 32)
+                local plan = fftw_lib.fftwf_plan_dft_1d(fft_size, fft_in_c, fft_out_c, -1, 64)
 
                 local num_frames = math.floor((num_samples - fft_size) / hop_size) + 1
                 if num_frames < 0 then num_frames = 0 end

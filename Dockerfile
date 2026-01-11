@@ -68,8 +68,31 @@ RUN \
     make -j$(nproc) && \
     make install DESTDIR=/install
 
-# Stage 4: Export
+# Stage 4: MacOS M-series Build
+FROM archlinux:latest AS macos-arm64-build
+RUN pacman -Sy --noconfirm base-devel zig
+WORKDIR /build
+COPY --from=source /src/fftw-3.3.10 .
+COPY build/ .
+RUN \
+    patch -Nbp1 -i 0001-detect-arm64-counter.patch && \
+    CC="zig cc -target aarch64-macos" \
+    AR="zig ar" \
+    RANLIB="zig ranlib" \
+    ./configure \
+        --host=aarch64-apple-darwin \
+        --enable-float \
+        --enable-shared \
+        --disable-static \
+        --enable-threads \
+        --with-combined-threads \
+        --enable-neon && \
+    make -j$(nproc) && \
+    make install DESTDIR=/install
+
+# Stage 5: Export
 FROM scratch AS export
 WORKDIR /libs
 COPY --from=linux-build /build/.libs/libfftw3f.so .
 COPY --from=windows-build /install/usr/x86_64-w64-mingw32/bin/libfftw3f-3.dll .
+COPY --from=macos-arm64-build /install/usr/local/lib/libfftw3f.dylib .

@@ -21,7 +21,7 @@ When you mark an intro in one episode, the script can search for that same intro
 - **ffmpeg** must be in your system `PATH`. ([Install instructions](#install-ffmpeg))
 - **LuaJIT** is highly recommended. The script uses FFI C-arrays for audio processing to avoid massive Garbage Collection overhead (standard in mpv).
 - **'bit' library** (optional): Standard in LuaJIT. Used for faster processing if available.
-- **libfftw3** (optional): Provides faster FFT processing for **audio scans only** (x86 Windows/Linux Only) Provided in repo, or [build it yourself](#building-fftw-libraries).
+- **libfftw3** (optional): Provides faster FFT processing for **audio scans only** (Windows, Linux, and macOS M-series [Experimental]). Pre-built binaries provided in `libs/`, or [build it yourself](#building-fftw-libraries).
 
 ## Installation
 
@@ -162,7 +162,10 @@ sudo pacman -S ffmpeg
 
 ## Building FFTW Libraries
 
-The project includes a `Dockerfile` for building the required shared libraries (`libfftw3f.so` for Linux and `libfftw3f-3.dll` for Windows).
+The project includes a `Dockerfile` for building the required shared libraries:
+- `libfftw3f.so` (Linux)
+- `libfftw3f-3.dll` (Windows)
+- `libfftw3f.dylib` (macOS M-series ARM64 - **Experimental**)
 
 ```bash
 docker build --output type=local,dest=. .

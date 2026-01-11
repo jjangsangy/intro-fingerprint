@@ -724,7 +724,7 @@ local function process_audio_data(pcm_str)
         local ptr = ffi.cast("int16_t*", pcm_str)
 
         -- FFTW logic branch
-        if options.audio_use_fftw == "yes" and ffi.os ~= "OSX" then
+        if options.audio_use_fftw == "yes" then
             if not fftw_lib and not fftw_path_tried then
                 fftw_path_tried = true
                 msg.info("FFTW enabled in config. Attempting to load library...")
@@ -734,6 +734,8 @@ local function process_audio_data(pcm_str)
                     lib_name = "libfftw3f-3.dll"
                 elseif ffi.os == "Linux" then
                     lib_name = "libfftw3f.so"
+                elseif ffi.os == "OSX" and ffi.arch == "arm64" then
+                    lib_name = "libfftw3f.dylib"
                 end
 
                 if lib_name then

@@ -18,10 +18,12 @@ When you mark an intro in one episode, the script can search for that same intro
 
 # Requirements
 
-- **ffmpeg** (required) must be in your system `PATH`. ([Install instructions](#install-ffmpeg))
+- **ffmpeg** (required) must be in your system `PATH`. ([Install Instructions](#install-ffmpeg))
 - **LuaJIT** (optional) is highly recommended. The script uses FFI C-arrays for audio processing to avoid massive Garbage Collection overhead (standard in mpv).
 - **'bit' library** (optional): Standard in LuaJIT. Used for faster processing if available.
-- **libfftw3** (optional): Provides faster FFT processing for **audio scans only** (Windows, Linux, and macOS M-series [Experimental]). Pre-built binaries provided in `libs/`, or [build it yourself](#building-fftw-libraries).
+- **libfftw3** (optional): Provides faster FFT processing for **audio scans only** 
+  - Windows, Linux support and *macOS M-series Experimental
+  - Pre-built binaries provided in `libs/`, or [build yourself](#building-fftw-libraries).
 
 # Installation
 
@@ -48,6 +50,33 @@ When you mark an intro in one episode, the script can search for that same intro
 - `Ctrl+s`: **Skip Intro (Audio)**. Scans the audio stream for a match based on the saved audio fingerprint.
   - *Note: Audio fingerprinting is significantly faster and is the default method. However, if the intro music changes between episodes while the video remains the same, use Video Skip instead.*
 - `Ctrl+Shift+s`: **Skip Intro (Video)**. Scans the current video for a match based on the saved video fingerprint.
+
+## Customizing Key Bindings
+
+You can customize the key bindings using either `intro-fingerprint.conf` file or `input.conf`.
+
+### 1. Using `intro-fingerprint.conf`
+You can change the default key bindings by setting the following options in your `intro-fingerprint.conf` file:
+
+```properties
+key_save_intro=Ctrl+i
+key_skip_audio=Ctrl+s
+key_skip_video=Ctrl+Shift+s
+```
+
+### 2. Using `input.conf`
+You can map any key to the script's named bindings in your `input.conf` file. The internal binding names are:
+
+- `save-intro`
+- `skip-intro-audio`
+- `skip-intro-video`
+
+**Example `input.conf`:**
+```properties
+Alt+i script-binding save-intro
+Alt+s script-binding skip-intro-audio
+Alt+Shift+s script-binding skip-intro-video
+```
 
 # How it Works
 

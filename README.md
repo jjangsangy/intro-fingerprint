@@ -26,7 +26,7 @@ When you mark an intro in one episode, the script can search for that same intro
   - Pre-built binaries provided in `libs/`, or [build yourself](#building-fftw-libraries).
 
 # Installation
-1.  **Download** the ([Latest Release](https://github.com/jjangsangy/intro-fingerprint/releases/latest/download/intro-fingerprint.tar.gz))
+1.  **Download** the ([Latest Release](https://github.com/jjangsangy/intro-fingerprint/releases/latest/download/intro-fingerprint.zip))
 2.  **Extract** the contents directly into your mpv configuration directory:
     - **Windows**: `%APPDATA%\Roaming\mpv\`
     - **Linux/macOS**: `~/.config/mpv/`

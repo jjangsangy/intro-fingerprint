@@ -143,6 +143,8 @@ The script uses two primary methods for fingerprinting:
 
 ## 2. Video Fingerprinting (Gradient Hash / dHash)
 
+![Gradient Hashing](assets/gradient-hashing.svg)
+
 - **Algorithm**: Resizes frames to 9x8 grayscale and compares adjacent pixels: if `P(x+1) > P(x)`, the bit is 1, else 0. This generates a 64-bit hash (8 bytes).
 - **Matching**: Uses Hamming Distance (count of differing bits). It is robust against color changes and small aspect ratio variations.
 - **Search Strategy**: The search starts around the timestamp of the saved fingerprint and expands outward.

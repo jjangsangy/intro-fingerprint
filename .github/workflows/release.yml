@@ -25,10 +25,6 @@ jobs:
           
           # Copy config to script-opts
           cp intro-fingerprint.conf staging/script-opts/
-          
-          # Copy LICENSE and README.md to the root
-          cp LICENSE staging/
-          cp README.md staging/
 
       - name: Create Archives
         run: |

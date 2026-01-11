@@ -78,39 +78,6 @@ Alt+s script-binding skip-intro-audio
 Alt+Shift+s script-binding skip-intro-video
 ```
 
-# How it Works
-
-The script uses two primary methods for fingerprinting:
-
-## 1. Audio Fingerprinting (Constellation Hashing)
-- **Algorithm**: Extracts audio using FFmpeg (s16le, mono) and performs FFT to identify peak frequencies in time-frequency bins.
-- **Hashing**: Pairs peaks to form hashes: `[f1][f2][delta_time]`.
-- **Matching**: Uses a **Global Offset Histogram**. Every match calculates $Offset = T_{long\_file} - T_{query}$, and the script looks for the largest cluster (peak) of consistent offsets.
-- **Filtering**: Implements **Match Ratio** filtering (default 25%) to ensure the match is an exact fingerprint overlap rather than just similar-sounding music.
-- **Search Strategy**: **Concurrent Linear Scan**. The timeline is divided into contiguous segments (e.g., 10s). Each segment is processed by a concurrent worker with sufficient padding to ensure no matches are lost at segment boundaries. Hashes are filtered to prevent double-counting in overlapping regions.
-- **Optimization**: 
-    - **Concurrency**: Launches multiple parallel FFmpeg workers to utilize all CPU cores.
-    - **Inverted Index**: Uses an $O(1)$ hash-map for near-instant lookup of fingerprints during the scan.
-    - **Optimal Stopping**: Scans terminate immediately once a high-confidence match is confirmed and the signal gradient drops.
-
-## 2. Video Fingerprinting (Gradient Hash / dHash)
-- **Algorithm**: Resizes frames to 9x8 grayscale and compares adjacent pixels: if `P(x+1) > P(x)`, the bit is 1, else 0. This generates a 64-bit hash (8 bytes).
-- **Matching**: Uses Hamming Distance (count of differing bits). It is robust against color changes and small aspect ratio variations.
-- **Search Strategy**: The search starts around the timestamp of the saved fingerprint and expands outward.
-- **Optimization**: FFmpeg video decoding is the most expensive part of the pipeline. By assuming the intro is at a similar location (common in episodic content), we avoid decoding the entire stream, resulting in much faster scans.
-
-# Performance & Technical Details
-
-The script is heavily optimized for LuaJIT and high-performance processing:
-
-- **Zero-Allocation Data Processing**: Uses **LuaJIT FFI** and custom C-structs for hash generation and spectrogram storage to eliminate millions of Lua table allocations during scanning.
-- **Asynchronous Subprocesses**: Uses coroutines to prevent blocking the player during scanning, allowing for graceful cancellation.
-- **Optimized Audio FFT**:
-    - **libfftw3 Support**: Maximum performance for audio FFT calculations. (Note: This acceleration is specific to the audio fingerprinting path).
-    - **Custom FFI Fallback**: If `libfftw3` is unavailable, it uses an optimized **Stockham Radix-4 Autosort** algorithm (avoiding bit-reversal permutations) and **Mixed-Radix** handling for power-of-2 sizes.
-    - **Cache Optimization**: Uses a planar (split-complex) data layout for efficient memory access.
-    - **Twiddle Caching**: Precomputed trigonometric tables eliminate runtime `sin`/`cos` calls.
-
 # Configuration
 
 You can customize the script by creating `intro-fingerprint.conf` in your mpv `script-opts` folder.
@@ -157,6 +124,50 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 | `key_save_intro` | `Ctrl+i`       | Key binding to save the intro fingerprint.      |
 | `key_skip_video` | `Ctrl+Shift+s` | Key binding to skip using video fingerprinting. |
 | `key_skip_audio` | `Ctrl+s`       | Key binding to skip using audio fingerprinting. |
+
+# How it Works
+
+The script uses two primary methods for fingerprinting:
+
+## 1. Audio Fingerprinting (Constellation Hashing)
+- **Algorithm**: Extracts audio using FFmpeg (s16le, mono) and performs FFT to identify peak frequencies in time-frequency bins.
+- **Hashing**: Pairs peaks to form hashes: `[f1][f2][delta_time]`.
+- **Matching**: Uses a **Global Offset Histogram**. Every match calculates $Offset = T_{long\_file} - T_{query}$, and the script looks for the largest cluster (peak) of consistent offsets.
+- **Filtering**: Implements **Match Ratio** filtering (default 25%) to ensure the match is an exact fingerprint overlap rather than just similar-sounding music.
+- **Search Strategy**: **Concurrent Linear Scan**. The timeline is divided into contiguous segments (e.g., 10s). Each segment is processed by a concurrent worker with sufficient padding to ensure no matches are lost at segment boundaries. Hashes are filtered to prevent double-counting in overlapping regions.
+- **Optimization**: 
+    - **Concurrency**: Launches multiple parallel FFmpeg workers to utilize all CPU cores.
+    - **Inverted Index**: Uses an $O(1)$ hash-map for near-instant lookup of fingerprints during the scan.
+    - **Optimal Stopping**: Scans terminate immediately once a high-confidence match is confirmed and the signal gradient drops.
+
+## 2. Video Fingerprinting (Gradient Hash / dHash)
+- **Algorithm**: Resizes frames to 9x8 grayscale and compares adjacent pixels: if `P(x+1) > P(x)`, the bit is 1, else 0. This generates a 64-bit hash (8 bytes).
+- **Matching**: Uses Hamming Distance (count of differing bits). It is robust against color changes and small aspect ratio variations.
+- **Search Strategy**: The search starts around the timestamp of the saved fingerprint and expands outward.
+- **Optimization**: FFmpeg video decoding is the most expensive part of the pipeline. By assuming the intro is at a similar location (common in episodic content), we avoid decoding the entire stream, resulting in much faster scans.
+
+# Performance & Technical Details
+
+The script is heavily optimized for LuaJIT and high-performance processing.
+
+## 1. LuaJIT FFI & Memory Management
+- **Zero-Allocation Data Processing**: Critical hot paths use **LuaJIT FFI** C-arrays (`double[]`, `int16_t[]`) instead of Lua tables. This prevents massive Garbage Collection (GC) pauses that would occur if creating millions of small table objects for audio samples and hashes.
+- **Flattened Data Structures**: 2D data (like spectrogram peaks) is flattened into 1D C-arrays to ensure memory contiguity and cache friendliness.
+- **Direct Memory Access**: Raw audio and video buffers from FFmpeg are cast directly to C-structs using FFI, avoiding any copying or string manipulation in Lua.
+
+## 2. Optimized Audio FFT (Custom Implementation)
+When `libfftw3` is unavailable, the script falls back to a highly optimized internal FFT implementation:
+- **Stockham Auto-Sort Algorithm**: Unlike the standard Cooley-Tukey algorithm, the Stockham formulation avoids the expensive bit-reversal permutation step, which causes random memory access patterns that are slow in Lua/FFI.
+- **Radix-4 & Mixed-Radix**: Processes 4 points at a time to reduce the total number of complex multiplications. Handles non-power-of-4 sizes (like 2048) by mixing Radix-2 passes.
+- **Precomputed Twiddle Factors**: Trigonometric values (`sin`/`cos`) are precomputed into lookup tables (`twiddles_re`, `twiddles_im`) during initialization. This eliminates expensive runtime math calls inside the FFT loops.
+- **Split-Complex (Planar) Layout**: Real and Imaginary components are stored in separate arrays. This improves cache locality and simplifies the math logic by keeping component access contiguous.
+- **Cache-Aware Loop Tiling**: The FFT loops switch between iteration strategies depending on stride size to ensure **unit-stride memory access**, minimizing CPU cache misses and maximizing memory throughput.
+
+## 3. Algorithmic Optimizations
+- **Inverted Index Matching**: Fingerprints are stored in a hash map ($O(1)$ lookup), allowing the scanner to instantly find potential matches without iterating through the reference data.
+- **Precomputed Population Count**: A 256-entry lookup table is used to calculate Hamming distances for video hashes, replacing bit-twiddling loops with a single table lookup per byte.
+- **Gradient-Based Early Stopping**: The scanner monitors the "match strength" gradient. Once a peak is found and the signal begins to fade, the scan aborts immediately, saving CPU time.
+- **Asynchronous Concurrency**: Uses `mpv` coroutines and multiple parallel FFmpeg workers to utilize all CPU cores without blocking the player UI.
 
 # Install FFmpeg
 

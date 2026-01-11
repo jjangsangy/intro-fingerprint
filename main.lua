@@ -3,15 +3,6 @@ local options = {
     -- Toggle console debug printing (Performance stats, scan info)
     debug = "no",
 
-    -- Video: Configuration
-    video_dhash_width = 9,         -- gradient hash requires specific dhash dimensions: 9x8
-    video_dhash_height = 8,
-    video_interval = 0.20,         -- time interval to check in seconds (0.20 = 200ms)
-    video_threshold = 12,          -- tolerance for Hamming Distance (0-64).
-    video_search_window = 10,      -- seconds before/after saved timestamp to search
-    video_max_search_window = 300, -- stop expanding after this offset
-    video_window_step = 30,        -- step size
-
     -- Audio: Configuration
     audio_sample_rate = 11025,
     audio_fft_size = 2048,
@@ -25,6 +16,15 @@ local options = {
     audio_concurrency = 4,           -- number of concurrent ffmpeg workers
     audio_min_match_ratio = 0.25,    -- minimum percentage of hashes that must match (0.0 - 1.0)
     audio_use_fftw = "no",           -- use libfftw for FFT processing
+
+    -- Video: Configuration
+    video_dhash_width = 9,         -- gradient hash requires specific dhash dimensions: 9x8
+    video_dhash_height = 8,
+    video_interval = 0.20,         -- time interval to check in seconds (0.20 = 200ms)
+    video_threshold = 12,          -- tolerance for Hamming Distance (0-64).
+    video_search_window = 10,      -- seconds before/after saved timestamp to search
+    video_max_search_window = 300, -- stop expanding after this offset
+    video_window_step = 30,        -- step size
 
     -- Name of the temp files
     video_temp_filename = "mpv_intro_skipper.dat",

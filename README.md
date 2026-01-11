@@ -86,27 +86,29 @@ The script is heavily optimized for LuaJIT and high-performance processing:
 
 You can customize the script by creating `intro-fingerprint.conf` in your mpv `script-opts` folder.
 
-| Option | Default | Description |
-| :--- | :--- | :--- |
-| `debug` | `no` | Enable console debug printing for performance stats and scan info. |
-| `audio_use_fftw` | `no` | Use `libfftw3` for faster audio FFT processing. |
-| `video_threshold` | `12` | Tolerance for Hamming Distance (0-64). Lower is stricter. |
-| `video_interval` | `0.20` | Time interval (seconds) between checked frames during video scan. |
-| `video_search_window` | `10` | Initial seconds before/after saved timestamp to search. |
-| `video_max_search_window` | `300` | Maximum seconds to expand the search window. |
-| `video_window_step` | `30` | Step size (seconds) when expanding the video search window. |
-| `audio_threshold` | `10` | Minimum magnitude for frequency peaks and minimum matches for a valid skip. |
-| `audio_min_match_ratio` | `0.25` | Minimum ratio of matching hashes required (0.0 - 1.0). |
-| `audio_concurrency` | `4` | Number of parallel FFmpeg workers for audio scanning. |
-| `audio_scan_limit` | `900` | Maximum seconds of the file to scan for audio matches. |
-| `audio_sample_rate` | `11025` | Sample rate for audio extraction. |
-| `audio_segment_duration` | `15` | Duration (seconds) of each audio scan segment for the linear scan. |
-| `audio_fingerprint_duration`| `10` | Duration (seconds) of the audio fingerprint to capture. |
-| `audio_fft_size` | `2048` | FFT size for audio processing. |
-| `audio_hop_size` | `1024` | Hop size (overlap) between FFT frames. |
-| `key_save_intro` | `Ctrl+i` | Key binding to save the intro fingerprint. |
-| `key_skip_video` | `Ctrl+Shift+s` | Key binding to skip using video fingerprinting. |
-| `key_skip_audio` | `Ctrl+s` | Key binding to skip using audio fingerprinting. |
+| Option                       | Default                       | Description                                                                 |
+| :--------------------------- | :---------------------------- | :-------------------------------------------------------------------------- |
+| `debug`                      | `no`                          | Enable console debug printing for performance stats and scan info.          |
+| `audio_threshold`            | `10`                          | Minimum magnitude for frequency peaks and minimum matches for a valid skip. |
+| `audio_min_match_ratio`      | `0.25`                        | Minimum ratio of matching hashes required (0.0 - 1.0).                      |
+| `audio_concurrency`          | `4`                           | Number of parallel FFmpeg workers for audio scanning.                       |
+| `audio_scan_limit`           | `900`                         | Maximum seconds of the file to scan for audio matches.                      |
+| `audio_sample_rate`          | `11025`                       | Sample rate for audio extraction.                                           |
+| `audio_segment_duration`     | `15`                          | Duration (seconds) of each audio scan segment for the linear scan.          |
+| `audio_fingerprint_duration` | `10`                          | Duration (seconds) of the audio fingerprint to capture.                     |
+| `audio_fft_size`             | `2048`                        | FFT size for audio processing.                                              |
+| `audio_hop_size`             | `1024`                        | Hop size (overlap) between FFT frames.                                      |
+| `audio_use_fftw`             | `no`                          | Use `libfftw3` for faster audio FFT processing.                             |
+| `video_threshold`            | `12`                          | Tolerance for Hamming Distance (0-64). Lower is stricter.                   |
+| `video_interval`             | `0.20`                        | Time interval (seconds) between checked frames during video scan.           |
+| `video_search_window`        | `10`                          | Initial seconds before/after saved timestamp to search.                     |
+| `video_max_search_window`    | `300`                         | Maximum seconds to expand the search window.                                |
+| `video_window_step`          | `30`                          | Step size (seconds) when expanding the video search window.                 |
+| `audio_temp_filename`        | `mpv_intro_skipper_audio.dat` | Name of temp file used for audio                                            |
+| `video_temp_filename`        | `mpv_intro_skipper.dat`       | Name of temp file used for video                                            |
+| `key_save_intro`             | `Ctrl+i`                      | Key binding to save the intro fingerprint.                                  |
+| `key_skip_video`             | `Ctrl+Shift+s`                | Key binding to skip using video fingerprinting.                             |
+| `key_skip_audio`             | `Ctrl+s`                      | Key binding to skip using audio fingerprinting.                             |
 
 ## Troubleshooting
 

@@ -19,9 +19,9 @@ When you mark an intro in one episode, the script can search for that same intro
 ## Requirements
 
 - **ffmpeg** must be in your system `PATH`.
-- **LuaJIT** is highly recommended. The script uses FFI C-arrays for audio processing to avoid massive Garbage Collection overhead.
+- **LuaJIT** is highly recommended. The script uses FFI C-arrays for audio processing to avoid massive Garbage Collection overhead (standard in mpv).
 - **'bit' library** (optional): Standard in LuaJIT. Used for faster processing if available.
-- **libfftw3** (optional): Provides faster FFT processing for **audio scans only** (Windows/Linux). It does not affect video fingerprinting performance.
+- **libfftw3** (optional): Provides faster FFT processing for **audio scans only** (Windows/Linux). It does not affect video fingerprinting performance. (provided in repo, or [build it yourself](#building-fftw-libraries))
 
 ## Installation
 
@@ -116,6 +116,50 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
   - For Audio: Ensure the intro has consistent music/audio.
 - **Slow Scans**: Enable `audio_use_fftw` and ensure you are using LuaJIT (standard in most mpv builds).
 
+## Install FFmpeg
+
+This script relies on `ffmpeg` being available in your system's `PATH`.
+
+### Windows
+Using a package manager (recommended):
+
+**Winget**:
+```powershell
+winget install ffmpeg
+```
+
+**Chocolatey**:
+```powershell
+choco install ffmpeg
+```
+
+**Scoop**:
+```powershell
+scoop install ffmpeg
+```
+
+### macOS
+Using Homebrew:
+```bash
+brew install ffmpeg
+```
+
+### Linux
+**Debian/Ubuntu**:
+```bash
+sudo apt update && sudo apt install ffmpeg
+```
+
+**Fedora**:
+```bash
+sudo dnf install ffmpeg
+```
+
+**Arch Linux**:
+```bash
+sudo pacman -S ffmpeg
+```
+
 ## Building FFTW Libraries
 
 The project includes a `Dockerfile` for building the required shared libraries (`libfftw3f.so` for Linux and `libfftw3f-3.dll` for Windows).
@@ -125,6 +169,7 @@ docker build --output type=local,dest=. .
 ```
 
 This will populate the `libs/` directory with the appropriate binaries.
+
 
 ## License
 

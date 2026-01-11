@@ -22,7 +22,7 @@ The script is a monolithic Lua script (`main.lua`) that integrates with MPV. It 
 - **Matching**:
     - **Global Offset Histogram**: For every match, $Offset = T_{long\_file} - T_{query}$ is calculated. A true match produces a massive "cluster" at the same offset.
     - **Match Ratio**: Skips require a minimum percentage of intro hashes to be present (default 25%) to filter false positives from similar music.
-- **Search Strategy**: **Concurrent Linear Scan**. The timeline is divided into contiguous segments (e.g., 10s). Each segment is processed by a concurrent worker with sufficient padding to ensure no matches are lost at segment boundaries. Hashes are filtered to prevent double-counting in overlapping regions.
+- **Search Strategy**: **Concurrent Linear Scan**. The timeline is divided into contiguous segments (default 15s). Each segment is processed by a concurrent worker with sufficient padding to ensure no matches are lost at segment boundaries. Hashes are filtered to prevent double-counting in overlapping regions.
 
 ## Performance Patterns
 - **Concurrent Worker Pool**: Audio scanning uses multiple parallel FFmpeg subprocesses (configurable via `audio_concurrency`) to maximize CPU utilization.
@@ -30,6 +30,9 @@ The script is a monolithic Lua script (`main.lua`) that integrates with MPV. It 
 - **Gradient-Based Early Stopping**: Scans terminate immediately after a high-confidence match is detected and the match strength subsequently drops.
 - **LuaJIT FFI**: Critical for performance. Uses C-structs and arrays to avoid Lua garbage collection overhead when handling millions of data points.
 - **Async Subprocesses**: `mp.command_native_async` and coroutines ensure the MPV interface remains responsive during scans.
+
+## Lifecycle Management
+- **Scan Abortion**: To prevent race conditions and orphan processes, the script listens for the `end-file` event. It uses `mp.abort_async_command` with a stored `current_scan_token` to immediately terminate any running FFmpeg workers and reset the `scanning` state.
 
 ## Data Flow
 1. **User Input** (Keybind) $\rightarrow$ **MPV Command**

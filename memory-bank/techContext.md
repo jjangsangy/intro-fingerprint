@@ -15,7 +15,6 @@
 ## Development Environment
 - **Operating System**: Windows 10 (based on environment details)
 - **Shell**: PowerShell (specified in `.clinerules`)
-- **Package Management**: `uv` for Python-related tools (though not used in this Lua-centric project).
 
 ## Technical Constraints
 - **LuaJIT Dependency**: The script heavily utilizes FFI and bitwise operations. While fallback paths exist for standard Lua, performance will degrade significantly.
@@ -27,9 +26,6 @@
 - **Spectrogram Parameters**:
     - Sample Rate: 11025 Hz (sufficient for frequency peaks while minimizing data size).
     - FFT Size: 2048 (balanced frequency resolution).
-- **Probabilistic Scanning**:
-    - Burst Duration: 12s (covers the default 10s intro clip).
-    - Burst Interval: 15s (80% duty cycle for reliable capture).
 - **Concurrency**:
     - Default: 4 concurrent FFmpeg workers to utilize multicore CPUs.
 - **Planar FFT**: Split-complex layout used in the manual FFT implementation for better cache locality.

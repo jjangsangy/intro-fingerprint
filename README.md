@@ -128,6 +128,9 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 The script uses two primary methods for fingerprinting:
 
 ## 1. Audio Fingerprinting (Constellation Hashing)
+
+![Constellation Hashing](assets/constellation-hashing.svg)
+
 - **Algorithm**: Extracts audio using FFmpeg (s16le, mono) and performs FFT to identify peak frequencies in time-frequency bins.
 - **Hashing**: Pairs peaks to form hashes: `[f1][f2][delta_time]`.
 - **Matching**: Uses a **Global Offset Histogram**. Every match calculates $Offset = T_{long\_file} - T_{query}$, and the script looks for the largest cluster (peak) of consistent offsets.
@@ -139,6 +142,7 @@ The script uses two primary methods for fingerprinting:
     - **Optimal Stopping**: Scans terminate immediately once a high-confidence match is confirmed and the signal gradient drops.
 
 ## 2. Video Fingerprinting (Gradient Hash / dHash)
+
 - **Algorithm**: Resizes frames to 9x8 grayscale and compares adjacent pixels: if `P(x+1) > P(x)`, the bit is 1, else 0. This generates a 64-bit hash (8 bytes).
 - **Matching**: Uses Hamming Distance (count of differing bits). It is robust against color changes and small aspect ratio variations.
 - **Search Strategy**: The search starts around the timestamp of the saved fingerprint and expands outward.

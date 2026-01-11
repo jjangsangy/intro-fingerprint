@@ -1,0 +1,77 @@
+<svg width="800" height="400" viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a29bfe;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6c5ce7;stop-opacity:1" />
+    </linearGradient>
+    <style>
+      .label { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; fill: #b2bec3; }
+      .title { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 18px; font-weight: bold; fill: white; }
+      .peak { fill: url(#grad1); }
+      .anchor { fill: #fab1a0; stroke: white; stroke-width: 2; }
+      .target-zone { fill: #6c5ce7; fill-opacity: 0.1; stroke: #6c5ce7; stroke-dasharray: 4; stroke-opacity: 0.5; }
+      .hash-line { stroke: #a29bfe; stroke-width: 1.5; stroke-dasharray: 2; opacity: 0.6; }
+      .axis { stroke: #636e72; stroke-width: 1; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#b2bec3" />
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="400" fill="#121212" rx="10"/>
+
+  <!-- Spectrogram Grid / Axes -->
+  <line x1="60" y1="340" x2="740" y2="340" class="axis" /> <!-- Time Axis -->
+  <line x1="60" y1="60" x2="60" y2="340" class="axis" />  <!-- Freq Axis -->
+  <text x="740" y="360" text-anchor="end" class="label">Time (t)</text>
+  <text x="50" y="60" text-anchor="end" transform="rotate(-90 50 60)" class="label">Frequency (f)</text>
+
+  <text x="400" y="40" text-anchor="middle" class="title">Constellation Hashing (Audio Fingerprinting)</text>
+
+  <!-- Background Peaks (noise/other stars) -->
+  <circle cx="100" cy="280" r="3" class="peak" opacity="0.4"/>
+  <circle cx="150" cy="120" r="3" class="peak" opacity="0.4"/>
+  <circle cx="200" cy="240" r="3" class="peak" opacity="0.4"/>
+  <circle cx="250" cy="180" r="3" class="peak" opacity="0.4"/>
+  <circle cx="300" cy="300" r="3" class="peak" opacity="0.4"/>
+  <circle cx="350" cy="100" r="3" class="peak" opacity="0.4"/>
+  <circle cx="500" cy="250" r="3" class="peak" opacity="0.4"/>
+  <circle cx="550" cy="150" r="3" class="peak" opacity="0.4"/>
+  <circle cx="650" cy="280" r="3" class="peak" opacity="0.4"/>
+  <circle cx="700" cy="120" r="3" class="peak" opacity="0.4"/>
+
+  <!-- Target Zone -->
+  <rect x="230" y="100" width="150" height="150" class="target-zone" rx="5"/>
+  <text x="305" y="90" text-anchor="middle" class="label" style="fill: #a29bfe;">Target Zone</text>
+
+  <!-- Anchor Point -->
+  <circle cx="180" cy="200" r="6" class="anchor"/>
+  <text x="180" y="225" text-anchor="middle" class="label" style="fill: #fab1a0;">Anchor (f1, t1)</text>
+
+  <!-- Target Peaks -->
+  <circle cx="260" cy="140" r="4" class="peak" id="p1"/>
+  <circle cx="320" cy="180" r="4" class="peak" id="p2"/>
+  <circle cx="290" cy="220" r="4" class="peak" id="p3"/>
+
+  <!-- Hash Connections -->
+  <line x1="180" y1="200" x2="260" y2="140" class="hash-line" />
+  <line x1="180" y1="200" x2="320" y2="180" class="hash-line" />
+  <line x1="180" y1="200" x2="290" y2="220" class="hash-line" />
+
+  <!-- Labels for Pairs -->
+  <g transform="translate(450, 150)">
+    <rect x="0" y="0" width="280" height="120" fill="#1e272e" rx="8" stroke="#6c5ce7" stroke-width="1"/>
+    <text x="140" y="30" text-anchor="middle" class="label" style="fill: white; font-weight: bold;">Combinatorial Hash Generation</text>
+    <text x="20" y="60" class="label">Hash = [f1, f2, Δt]</text>
+    <text x="20" y="85" class="label">f1: Anchor Frequency</text>
+    <text x="20" y="105" class="label">f2: Target Frequency, Δt: Time Delta</text>
+  </g>
+
+  <!-- Annotations for Δt -->
+  <line x1="180" y1="345" x2="180" y2="335" class="axis" />
+  <line x1="260" y1="345" x2="260" y2="335" class="axis" />
+  <path d="M185 350 L255 350" stroke="#b2bec3" stroke-width="1" fill="none" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text x="220" y="370" text-anchor="middle" class="label">Δt</text>
+
+</svg>

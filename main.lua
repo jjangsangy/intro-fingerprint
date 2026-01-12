@@ -46,6 +46,13 @@ require('mp.options').read_options(options, 'intro-fingerprint')
 local ffi_status, ffi = pcall(require, "ffi")
 local bit_status, bit = pcall(require, "bit")
 
+if not ffi_status then
+    msg.warn("LuaJIT FFI not detected! Falling back to standard Lua (slower).")
+end
+if not bit_status then
+    msg.warn("BitOp library not detected! Falling back to arithmetic operations (slower).")
+end
+
 -- Global scanning state to prevent race conditions
 local scanning = false
 local current_scan_token = nil

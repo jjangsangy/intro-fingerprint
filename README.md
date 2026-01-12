@@ -114,7 +114,7 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 | Option                | Default                       | Description                      |
 | :-------------------- | :---------------------------- | :------------------------------- |
 | `audio_temp_filename` | `mpv_intro_skipper_audio.dat` | Name of temp file used for audio |
-| `video_temp_filename` | `mpv_intro_skipper.dat`       | Name of temp file used for video |
+| `video_temp_filename` | `mpv_intro_skipper_video.dat` | Name of temp file used for video |
 
 ## Key Bindings
 | Option           | Default        | Description                                     |

@@ -27,7 +27,7 @@ local options = {
     video_window_step = 30,        -- step size
 
     -- Name of the temp files
-    video_temp_filename = "mpv_intro_skipper.dat",
+    video_temp_filename = "mpv_intro_skipper_video.dat",
     audio_temp_filename = "mpv_intro_skipper_audio.dat",
 
     -- Key Bindings

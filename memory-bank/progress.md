@@ -12,10 +12,11 @@
 - [x] **Configurable Options**: Exposure of thresholds, windows, and processing flags via MPV options.
 - [x] **FFI Optimization**: Zero-allocation (or low-allocation) paths for data-intensive operations.
 - [x] **FFTW Integration**: Ability to use `libfftw3` for faster FFTs.
+- [x] **Dockerized Build System**: Multi-stage Dockerfile for `libfftw3f` (Linux, Windows, and macOS M-series cross-compilation from source). Optimized Linux build using `manylinux2014` for broad compatibility.
+- [x] **DevContainer**: VS Code DevContainer for Ubuntu 22.04 to test the MPV environment. Includes automated setup and volume mounting for test videos.
 
 ## In Progress
 - [x] Initial Memory Bank Documentation.
-- [x] **Dockerized Build System**: Multi-stage Dockerfile for `libfftw3f` (Linux, Windows, and macOS M-series cross-compilation from source).
 
 ## Future Roadmap
 - [ ] **Persistent Fingerprints**: Moving beyond temp files to a user-specified database or local directory.

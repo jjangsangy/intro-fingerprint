@@ -6,8 +6,7 @@ RUN wget -q http://www.fftw.org/fftw-3.3.10.tar.gz && \
     tar -xzf fftw-3.3.10.tar.gz
 
 # Stage 2: Linux Build
-FROM archlinux:latest AS linux-build
-RUN pacman -Sy --noconfirm base-devel
+FROM quay.io/pypa/manylinux2014_x86_64 AS linux-build
 WORKDIR /build
 COPY --from=source /src/fftw-3.3.10 .
 RUN ./configure \

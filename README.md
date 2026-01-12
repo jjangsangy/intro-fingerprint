@@ -31,6 +31,14 @@ When you mark an intro in one episode, the script can search for that same intro
     - **Windows**: `%APPDATA%\Roaming\mpv\`
     - **Linux/macOS**: `~/.config/mpv/`
 
+## Development & Testing
+You can use the provided VS Code DevContainer to test the script in a pre-configured Linux environment:
+1. Open the project in VS Code.
+2. Click **Reopen in Container** when prompted.
+3. The container comes with `mpv`, `ffmpeg`, and `xvfb` pre-installed.
+4. To test headlessly: `xvfb-run mpv --script=main.lua videos`
+   - *Note: Place your test videos in the `videos/` folder in the project root to have them available inside the container.*
+
 ### (Optional) Enable FFTW
 To enable the optimized FFTW paths, edit `script-opts/intro-fingerprint.conf` and set `audio_use_fftw=yes`.
 

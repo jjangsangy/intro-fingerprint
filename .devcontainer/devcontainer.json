@@ -1,0 +1,19 @@
+{
+    "name": "MPV Script Dev (Ubuntu 22.04)",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+    "mounts": [
+        "source=${localWorkspaceFolder}/videos,target=/workspace/videos,type=bind,consistency=cached"
+    ],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "sumneko.lua"
+            ]
+        }
+    },
+    "postCreateCommand": "bash .devcontainer/setup.sh && mpv --version && ffmpeg -version",
+    "remoteUser": "vscode"
+}

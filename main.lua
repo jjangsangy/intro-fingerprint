@@ -145,6 +145,64 @@ end
 local fftw_lib = nil
 local fftw_path_tried = false
 
+local function get_script_dir()
+    local dir = mp.get_script_directory()
+    if dir then
+        return utils.join_path(dir, "")
+    end
+
+    -- Fallback for older mpv versions or unusual environments
+    local source = debug.getinfo(1).source
+    if source and source:sub(1, 1) == "@" then
+        return source:sub(2):match("(.*[/\\])") or ""
+    end
+    return ""
+end
+
+local function load_fftw_library()
+    if fftw_lib then return fftw_lib end
+
+    local libs = {}
+    if ffi.os == "Windows" then
+        libs = { "libfftw3f-3.dll", "libfftw3f-3" }
+    elseif ffi.os == "Linux" then
+        libs = { "libfftw3f.so.3", "libfftw3f.so", "fftw3f" }
+    elseif ffi.os == "OSX" then
+        if ffi.arch == "arm64" then
+            libs = { "libfftw3f.3.dylib", "libfftw3f.dylib", "fftw3f" }
+        end
+    end
+
+    local script_dir = get_script_dir()
+    local search_paths = {}
+
+    -- 1. Try Local 'libs' directory
+    if script_dir ~= "" then
+        local local_libs_dir = utils.join_path(script_dir, "libs")
+        for _, lib in ipairs(libs) do
+            if lib:match("%.") then -- Only check files with extensions locally
+                table.insert(search_paths, utils.join_path(local_libs_dir, lib))
+            end
+        end
+    end
+
+    -- 2. Try System paths (ffi.load handles this with just the name)
+    for _, lib in ipairs(libs) do
+        table.insert(search_paths, lib)
+    end
+
+    for _, path in ipairs(search_paths) do
+        log_info("Attempting to load FFTW from: " .. path)
+        local status, lib = pcall(ffi.load, path)
+        if status then
+            msg.info("Successfully loaded FFTW from: " .. path)
+            return lib
+        end
+    end
+
+    return nil
+end
+
 local function get_temp_dir()
     return os.getenv("TEMP") or os.getenv("TMP") or os.getenv("TMPDIR") or "/tmp"
 end
@@ -727,32 +785,10 @@ local function process_audio_data(pcm_str)
         if options.audio_use_fftw == "yes" then
             if not fftw_lib and not fftw_path_tried then
                 fftw_path_tried = true
-                msg.info("FFTW enabled in config. Attempting to load library...")
-
-                local lib_name = nil
-                if ffi.os == "Windows" then
-                    lib_name = "libfftw3f-3.dll"
-                elseif ffi.os == "Linux" then
-                    lib_name = "libfftw3f.so"
-                elseif ffi.os == "OSX" and ffi.arch == "arm64" then
-                    lib_name = "libfftw3f.dylib"
-                end
-
-                if lib_name then
-                    msg.info("Looking for FFTW library: " .. lib_name)
-                    local path = mp.find_config_file("scripts/intro-fingerprint/libs/" .. lib_name)
-                    if path then
-                        msg.info("Found FFTW library at: " .. path)
-                        local status, err = pcall(ffi.load, path)
-                        if status then
-                            fftw_lib = err -- pcall success returns result (the lib) as second arg
-                            msg.info("Successfully loaded FFTW library.")
-                        else
-                            msg.error("Failed to load FFTW library: " .. tostring(err))
-                        end
-                    else
-                        msg.error("Could not find FFTW library in scripts/intro-fingerprint/")
-                    end
+                msg.info("FFTW enabled in config. Searching for library...")
+                fftw_lib = load_fftw_library()
+                if not fftw_lib then
+                    msg.error("Could not find or load FFTW library. Falling back to internal FFT.")
                 end
             end
 

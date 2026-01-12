@@ -19,7 +19,7 @@ The script is in a functional and feature-complete state for its primary goal of
 - Verifying experimental macOS support.
 
 ## Active Decisions
-- **FFT Implementation**: Currently supports both a fallback Stockham Radix-4 (FFI) and a high-performance FFTW3 library via FFI.
+- **FFT Implementation**: Currently supports both a fallback Stockham Radix-4 (FFI) and a high-performance FFTW3 library via FFI. Discovery is performed locally in the script's `libs/` directory before falling back to system-wide paths.
 - **Search Logic**: Video uses a centered expanding window; Audio uses **concurrent linear scan** with chunked segments and ordered result processing.
 
 ## Next Steps

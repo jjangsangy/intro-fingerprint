@@ -11,7 +11,7 @@
     - `ffi`: LuaJIT Foreign Function Interface for C-level performance.
     - `bit`: Lua bitwise operations (provided by LuaJIT).
     - `utils`: MPV utility library.
-    - `fftw3f` (Optional): Fast Fourier Transform library for optimized audio processing.
+    - `fftw3f` (Optional): Fast Fourier Transform library for optimized audio processing. Note: On macOS, this is currently supported only on ARM64 (Apple Silicon) architectures.
 
 ## Development Environment
 - **Operating System**: Windows 10 (based on environment details)

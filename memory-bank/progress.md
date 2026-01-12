@@ -1,6 +1,7 @@
 # Progress
 
 ## Completed Features
+- [x] **Robust Library Discovery**: Implemented resilient cross-platform FFTW3 discovery (Local `libs/` -> System fallback).
 - [x] **Concurrent Linear Audio Scanning**: Replaced probabilistic bursts with a chunked linear scan for 100% coverage and maximum reliability.
 - [x] **Concurrent Execution**: Parallel FFmpeg worker pool for multi-core audio processing.
 - [x] **Offset Histogram Matching**: Robust time-offset clustering logic for precise sync.

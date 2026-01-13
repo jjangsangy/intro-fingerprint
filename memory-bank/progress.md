@@ -19,6 +19,7 @@
 
 ## In Progress
 - [x] Initial Memory Bank Documentation.
+- [x] Expanded troubleshooting documentation for LuaJIT support.
 
 ## Future Roadmap
 - [ ] **Persistent Fingerprints**: Moving beyond temp files to a user-specified database or local directory.

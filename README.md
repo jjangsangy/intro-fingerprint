@@ -229,7 +229,33 @@ sudo pacman -S ffmpeg
 - **No match found**: 
   - For Video: Try increasing `video_threshold` or ensure the intro is visually similar.
   - For Audio: Ensure the intro has consistent music/audio.
-- **Slow Scans**: Enable `audio_use_fftw` and ensure you are using LuaJIT (standard in most mpv builds).
+- **Slow Scans**: Enable `audio_use_fftw` and ensure you are using LuaJIT. See [Verifying LuaJIT Support](#verifying-luajit-support) below.
+
+## Verifying LuaJIT Support
+
+This script is highly optimized for **LuaJIT**. While it includes a fallback for standard Lua (5.1/5.2), using LuaJIT provides significantly faster performance, especially for audio scanning.
+
+To check if your mpv build uses LuaJIT, run the following command in your terminal:
+
+**Windows**:
+```powershell
+mpv -v --no-config null:// 2>&1 | findstr luajit
+```
+
+**macOS / Linux**:
+```bash
+mpv -v --no-config null:// 2>&1 | grep luajit
+```
+
+If the command returns a line containing `luajit`, you are good to go. If it returns nothing, you are likely using standard Lua.
+
+**If `luajit` is missing:**
+
+-   **Windows**: Download the official builds from [mpv.io](https://mpv.io/installation/) (e.g., shinchiro builds). These include LuaJIT by default.
+-   **macOS**: Install via Homebrew: `brew install mpv`.
+-   **Linux**:
+    -   Some distribution packages (Ubuntu/Debian) ship with standard Lua instead of LuaJIT.
+    -   **Recommended**: Install via **Flatpak** from [Flathub](https://flathub.org/apps/io.mpv.Mpv), which includes LuaJIT.
 
 # Building FFTW Libraries
 

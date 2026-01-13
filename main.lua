@@ -448,6 +448,10 @@ end
 -- Optimized Cooley-Tukey FFT for standard Lua (In-place)
 local function fft_lua_optimized(real, imag, n)
     local cache = lua_fft_cache
+    if not cache then
+        msg.error("FFT cache not initialized")
+        return
+    end
     local tw_re = cache.twiddles_re
     local tw_im = cache.twiddles_im
 
@@ -575,6 +579,10 @@ local function fft_stockham(re, im, y_re, y_im, n)
 
     local l = 1
     local t_re, t_im = twiddles_re, twiddles_im
+    if not t_re or not t_im then
+        msg.error("FFT twiddles not initialized")
+        return
+    end
     local n_quarter = n / 4
     local n_half = n / 2
 
@@ -943,6 +951,10 @@ local function process_audio_data(pcm_str)
     init_lua_fft_cache(fft_size)
 
     local cache = lua_fft_cache
+    if not cache then
+        msg.error("FFT cache not initialized")
+        return {}, 0
+    end
     local rev = cache.rev
     local hann = cache.hann
     local real_buf = {}
@@ -1216,9 +1228,11 @@ local function skip_intro_audio()
             if h and t then
                 h = tonumber(h)
                 t = tonumber(t)
-                if not saved_hashes[h] then saved_hashes[h] = {} end
-                table.insert(saved_hashes[h], t)
-                total_intro_hashes = total_intro_hashes + 1
+                if h and t then
+                    if not saved_hashes[h] then saved_hashes[h] = {} end
+                    table.insert(saved_hashes[h], t)
+                    total_intro_hashes = total_intro_hashes + 1
+                end
             end
         end
         file:close()
@@ -1334,8 +1348,10 @@ local function skip_intro_audio()
                                 for _, fp_time in ipairs(saved) do
                                     local offset = track_time - fp_time
                                     local bin = math.floor(offset / time_bin_width + 0.5)
-                                    global_offset_histogram[bin] = (global_offset_histogram[bin] or 0) + 1
-                                    local_histogram[bin] = (local_histogram[bin] or 0) + 1
+                                    if bin and global_offset_histogram and local_histogram then
+                                        global_offset_histogram[bin] = (global_offset_histogram[bin] or 0) + 1
+                                        local_histogram[bin] = (local_histogram[bin] or 0) + 1
+                                    end
                                 end
                             end
                         end
@@ -1350,8 +1366,10 @@ local function skip_intro_audio()
                                 for _, fp_time in ipairs(saved) do
                                     local offset = track_time - fp_time
                                     local bin = math.floor(offset / time_bin_width + 0.5)
-                                    global_offset_histogram[bin] = (global_offset_histogram[bin] or 0) + 1
-                                    local_histogram[bin] = (local_histogram[bin] or 0) + 1
+                                    if bin and global_offset_histogram and local_histogram then
+                                        global_offset_histogram[bin] = (global_offset_histogram[bin] or 0) + 1
+                                        local_histogram[bin] = (local_histogram[bin] or 0) + 1
+                                    end
                                 end
                             end
                         end

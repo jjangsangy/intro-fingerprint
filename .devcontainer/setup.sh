@@ -21,4 +21,10 @@ ln -sfn "$WORKSPACE_DIR/libs" "$MPV_CONFIG_DIR/scripts/intro-fingerprint/libs"
 # configuration file
 ln -sf "$WORKSPACE_DIR/intro-fingerprint.conf" "$MPV_CONFIG_DIR/script-opts/intro-fingerprint.conf"
 
+# Create mpv.conf for headless dev environment
+cat <<EOF > "$MPV_CONFIG_DIR/mpv.conf"
+# DevContainer Config
+ao=null
+EOF
+
 echo "MPV environment configured successfully at $MPV_CONFIG_DIR"

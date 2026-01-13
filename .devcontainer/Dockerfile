@@ -9,6 +9,11 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     libfftw3-dev \
     build-essential \
     xvfb \
+    mesa-utils \
+    libgl1-mesa-dri \
+    libgl1-mesa-glx \
+    alsa-utils \
+    pulseaudio-utils \
     git \
     curl \
     && apt-get clean && rm -rf /var/lib/apt/lists/*

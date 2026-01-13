@@ -16,7 +16,7 @@ The script is a monolithic Lua script (`main.lua`) that integrates with MPV. It 
 - **Extraction**: FFmpeg extracts raw PCM (`s16le`, mono, 11025Hz).
 - **Processing**:
     - FFT:
-        - **LuaJIT FFI**: Uses FFTW3 (if available) or an FFI-optimized Stockham Radix-4 implementation.
+        - **LuaJIT FFI**: Uses FFTW3 (if available) or an FFI-optimized Stockham Radix-4 & Mixed-Radix implementation.
         - **Standard Lua**: Uses an optimized in-place Cooley-Tukey implementation with precomputed trig tables and bit-reversal caches to minimize GC overhead.
     - Peak detection identifies the most prominent frequencies (top 5 per frame).
 - **Hashing**: Pairs of peaks $[f1, f2, \Delta t]$ are combined into a unique 32-bit hash.

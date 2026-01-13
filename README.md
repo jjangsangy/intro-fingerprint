@@ -165,7 +165,7 @@ When `libfftw3` is unavailable, the script falls back to highly optimized intern
 
 ### For LuaJIT (FFI-Optimized)
 - **Stockham Auto-Sort Algorithm**: Avoids the expensive bit-reversal permutation step, maximizing FFI performance.
-- **Radix-4 & Mixed-Radix**: Processes 4 points at a time to reduce complex multiplications.
+- **Radix-4 & Mixed-Radix**: Processes 4 points at a time to reduce complex multiplications, with Radix-2 fallback passes to handle non-power-of-4 sizes (e.g., 2048).
 - **Cache-Aware Loop Tiling**: Ensures **unit-stride memory access** for maximum memory throughput.
 
 ### For Standard Lua (Interpreter-Optimized)

@@ -25,7 +25,7 @@ The script is in a functional and feature-complete state for its primary goal of
 ## Active Decisions
 - **FFT Implementation**: Supports three tiers of performance:
     1.  **FFTW3 (FFI)**: Highest performance using the external C library.
-    2.  **Stockham Radix-4 (FFI)**: High performance fallback for LuaJIT when FFTW3 is missing.
+    2.  **Stockham Radix-4 & Mixed-Radix (FFI)**: High performance fallback for LuaJIT when FFTW3 is missing.
     3.  **Optimized Cooley-Tukey (Standard Lua)**: Optimized fallback for builds without LuaJIT, using precomputed tables and zero-allocation buffers.
 - **Search Logic**: Video uses a centered expanding window; Audio uses **concurrent linear scan** with chunked segments and ordered result processing.
 

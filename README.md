@@ -239,12 +239,12 @@ To check if your mpv build uses LuaJIT, run the following command in your termin
 
 **Windows**:
 ```powershell
-mpv -v --no-config null:// 2>&1 | findstr luajit
+mpv --version -v | findstr luajit
 ```
 
 **macOS / Linux**:
 ```bash
-mpv -v --no-config null:// 2>&1 | grep luajit
+mpv --version -v | grep luajit
 ```
 
 If the command returns a line containing `luajit`, you are good to go. If it returns nothing, you are likely using standard Lua.

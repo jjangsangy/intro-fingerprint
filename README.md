@@ -89,6 +89,7 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 ## Audio Options
 | Option                       | Default | Description                                                                 |
 | :--------------------------- | :------ | :-------------------------------------------------------------------------- |
+| `audio_use_fftw`             | `no`    | Use `libfftw3` for faster audio FFT processing.                             |
 | `audio_threshold`            | `10`    | Minimum magnitude for frequency peaks and minimum matches for a valid skip. |
 | `audio_min_match_ratio`      | `0.25`  | Minimum ratio of matching hashes required (0.0 - 1.0).                      |
 | `audio_concurrency`          | `4`     | Number of parallel FFmpeg workers for audio scanning.                       |
@@ -100,7 +101,6 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 | `audio_hop_size`             | `1024`  | Hop size (overlap) between FFT frames.                                      |
 | `audio_target_t_min`         | `10`    | Minimum delay in frames for peak pairs in constellation hashing.            |
 | `audio_target_t_max`         | `100`   | Maximum delay in frames for peak pairs in constellation hashing.            |
-| `audio_use_fftw`             | `no`    | Use `libfftw3` for faster audio FFT processing.                             |
 
 ## Video Options
 | Option                    | Default | Description                                                       |

@@ -4,6 +4,7 @@ local options = {
     debug = "no",
 
     -- Audio: Configuration
+    audio_use_fftw = "no",           -- use libfftw for FFT processing
     audio_sample_rate = 11025,
     audio_fft_size = 2048,
     audio_hop_size = 1024,
@@ -15,7 +16,6 @@ local options = {
     audio_segment_duration = 15,     -- duration of each scan segment in seconds
     audio_concurrency = 4,           -- number of concurrent ffmpeg workers
     audio_min_match_ratio = 0.25,    -- minimum percentage of hashes that must match (0.0 - 1.0)
-    audio_use_fftw = "no",           -- use libfftw for FFT processing
 
     -- Video: Configuration
     video_dhash_width = 9,         -- gradient hash requires specific dhash dimensions: 9x8

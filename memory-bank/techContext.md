@@ -6,7 +6,7 @@
 - **External Dependencies**:
     - **FFmpeg**: Must be available in the system PATH. Used for frame and audio extraction.
     - **Docker**: Used for cross-compiling the `libfftw3f` shared objects. The build system uses a multi-stage Dockerfile (`manylinux2014` for Linux, Arch for Windows/macOS) to ensure broad compatibility.
-    - **DevContainer**: A VS Code DevContainer (Ubuntu 22.04) is available for local development and testing of the MPV environment.
+    - **DevContainer**: A VS Code DevContainer (Ubuntu 24.04) is available for local development and testing of the MPV environment. It includes a custom-built `mpv-luajit` binary.
 - **Libraries**:
     - `ffi`: LuaJIT Foreign Function Interface for C-level performance.
     - `bit`: Lua bitwise operations (provided by LuaJIT).

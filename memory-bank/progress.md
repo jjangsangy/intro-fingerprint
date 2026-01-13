@@ -14,7 +14,7 @@
 - [x] **FFI Optimization**: Zero-allocation (or low-allocation) paths for data-intensive operations.
 - [x] **FFTW Integration**: Ability to use `libfftw3` for faster FFTs.
 - [x] **Dockerized Build System**: Multi-stage Dockerfile for `libfftw3f` (Linux, Windows, and macOS M-series cross-compilation from source). Optimized Linux build using `manylinux2014` for broad compatibility.
-- [x] **DevContainer**: VS Code DevContainer for Ubuntu 22.04 to test the MPV environment. Includes automated setup and volume mounting for test videos.
+- [x] **DevContainer**: VS Code DevContainer for Ubuntu 24.04 with a custom-built `mpv-luajit` (v0.38.0) environment. Supports both X11 and Wayland (`wlshm`) video outputs for compatibility with WSLg.
 
 ## In Progress
 - [x] Initial Memory Bank Documentation.

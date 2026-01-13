@@ -1,5 +1,5 @@
 {
-    "name": "MPV Script Dev (Ubuntu 22.04)",
+    "name": "MPV Script Dev (Ubuntu 24.04)",
     "build": {
         "dockerfile": "Dockerfile",
         "context": ".."
@@ -14,6 +14,6 @@
             ]
         }
     },
-    "postCreateCommand": "bash .devcontainer/setup.sh && mpv --version && ffmpeg -version",
+    "postCreateCommand": "bash .devcontainer/setup.sh && mpv --version && mpv-luajit --version && ffmpeg -version",
     "remoteUser": "vscode"
 }

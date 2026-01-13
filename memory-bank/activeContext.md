@@ -4,7 +4,9 @@
 The script is in a functional and feature-complete state for its primary goal of skipping intros using video or audio fingerprinting.
 
 ## Recent Changes
-- **DevContainer Integration**: Added a VS Code DevContainer (Ubuntu 22.04) with pre-installed `mpv`, `ffmpeg`, and automated environment setup (symlinking scripts and config). Fixed hardware-related errors in the container by adding software rendering libraries (`mesa-utils`, `libgl1`) and configuring `mpv.conf` to use headless-friendly defaults (`ao=null`).
+- **DevContainer Integration**: Added a VS Code DevContainer (Ubuntu 24.04) with pre-installed `mpv`, `ffmpeg`, and automated environment setup (symlinking scripts and config). Fixed hardware-related errors in the container by adding software rendering libraries (`mesa-utils`, `libgl1`) and configuring `mpv.conf` to use headless-friendly defaults (`ao=null`).
+- **Custom MPV-LuaJIT Build**: Implemented a custom build of `mpv` (v0.38.0) with LuaJIT enabled inside the devcontainer. This provides a high-performance environment for testing the script's FFI paths. The build is integrated into the Dockerfile and co-exists with the system `mpv` as `/usr/local/bin/mpv-luajit`.
+- **Ubuntu 24.04 Upgrade**: Upgraded the devcontainer base image from 22.04 to 24.04 to satisfy modern dependency requirements (Wayland 1.21+, modern Libplacebo/FFmpeg) for building recent `mpv` versions.
 - **AnyLinux Compatibility**: Updated the Linux build process to use `manylinux2014` (CentOS 7 base) for maximum binary compatibility across distributions.
 - **macOS M-series Support**: Added experimental cross-compilation for Apple Silicon (ARM64) to the Dockerfile using `zig cc`.
 - **UX Update**: Swapped default key bindings. Audio skip is now the primary method (`Ctrl+s`) due to speed, while Video skip (`Ctrl+Shift+s`) is the robust fallback.

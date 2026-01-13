@@ -275,7 +275,7 @@ You can use the provided VS Code DevContainer to test the script in a pre-config
 1. Open the project in VS Code.
 2. Click **Reopen in Container** when prompted.
 3. The container comes with `mpv`, `ffmpeg`, and `xvfb` pre-installed.
-4. To test headlessly: `xvfb-run mpv --script=main.lua videos`
+4. To test: `xvfb-run mpv --script=main.lua videos`
    - *Note: Place your test videos in the `videos/` folder in the project root to have them available inside the container.*
 
 # License

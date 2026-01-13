@@ -27,4 +27,11 @@ cat <<EOF > "$MPV_CONFIG_DIR/mpv.conf"
 ao=null
 EOF
 
+# Disable default screenshot bindings in devcontainer
+# These conflict with the script's Ctrl+s binding (Audio Skip)
+cat <<EOF > "$MPV_CONFIG_DIR/input.conf"
+s ignore
+Ctrl+s ignore
+EOF
+
 echo "MPV environment configured successfully at $MPV_CONFIG_DIR"

@@ -11,6 +11,7 @@ The script is in a functional and feature-complete state for its primary goal of
 - **Ubuntu 24.04 Upgrade**: Upgraded the devcontainer base image from 22.04 to 24.04 to satisfy modern dependency requirements (Wayland 1.21+, modern Libplacebo/FFmpeg) for building recent `mpv` versions.
 - **AnyLinux Compatibility**: Updated the Linux build process to use `manylinux2014` (CentOS 7 base) for maximum binary compatibility across distributions.
 - **macOS M-series Support**: Added experimental cross-compilation for Apple Silicon (ARM64) to the Dockerfile using `zig cc`.
+- **Neighbor Bin Summing**: Implemented a fix for the "bin splitting" issue in audio matching. The script now sums adjacent time bins in the offset histogram to improve robustness against timing jitter and alignment variations.
 - **UX Update**: Swapped default key bindings. Audio skip is now the primary method (`Ctrl+s`) due to speed, while Video skip (`Ctrl+Shift+s`) is the robust fallback.
 - **Configuration**: Made key bindings fully configurable in `intro-fingerprint.conf`.
 - **Refactored Audio Scanning**: Implemented concurrent linear scan with chunked segments and global offset histogram matching. Replaced probabilistic sub-sampling to ensure 100% coverage while maintaining performance.

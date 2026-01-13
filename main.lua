@@ -1357,8 +1357,9 @@ local function skip_intro_audio()
                     end
                 end
 
-                for _, cnt in pairs(local_histogram) do
-                    if cnt > local_max then local_max = cnt end
+                for bin, cnt in pairs(local_histogram) do
+                    local score = cnt + (local_histogram[bin - 1] or 0) + (local_histogram[bin + 1] or 0)
+                    if score > local_max then local_max = score end
                 end
 
                 local local_ratio = local_max / total_intro_hashes
@@ -1397,8 +1398,9 @@ local function skip_intro_audio()
             local best_bin = nil
             local max_val = 0
             for bin, cnt in pairs(global_offset_histogram) do
-                if cnt > max_val then
-                    max_val = cnt
+                local score = cnt + (global_offset_histogram[bin - 1] or 0) + (global_offset_histogram[bin + 1] or 0)
+                if score > max_val then
+                    max_val = score
                     best_bin = bin
                 end
             end

@@ -206,7 +206,7 @@ local function load_fftw_library()
             return lib
         end
     end
-
+    msg.warn("Could not load FFTW")
     return nil
 end
 

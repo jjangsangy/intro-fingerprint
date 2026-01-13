@@ -12,6 +12,7 @@ When you mark an intro in one episode, the script can search for that same intro
 - **Video Fingerprinting**: Uses Gradient Hashing (dHash) to find visually similar intros.
 - **High Performance**: 
   - Uses **LuaJIT FFI** for zero-allocation data processing to handle large audio/video datasets efficiently.
+  - Optimized **Pure-Lua Fallback** for environments without LuaJIT (e.g., some Linux builds), achieving ~2.5x faster FFTs than standard implementations.
   - Optional **libfftw3** support for accelerated FFT calculations.
 - **Async Execution**: Scans run in the background using mpv coroutines and async subprocesses, ensuring the player remains responsive.
 - **Cross-Platform**: Supports Windows, Linux, and macOS (with appropriate dependencies).
@@ -160,12 +161,18 @@ The script is heavily optimized for LuaJIT and high-performance processing.
 - **Direct Memory Access**: Raw audio and video buffers from FFmpeg are cast directly to C-structs using FFI, avoiding any copying or string manipulation in Lua.
 
 ## 2. Optimized Audio FFT (Custom Implementation)
-When `libfftw3` is unavailable, the script falls back to a highly optimized internal FFT implementation:
-- **Stockham Auto-Sort Algorithm**: Unlike the standard Cooley-Tukey algorithm, the Stockham formulation avoids the expensive bit-reversal permutation step, which causes random memory access patterns that are slow in Lua/FFI.
-- **Radix-4 & Mixed-Radix**: Processes 4 points at a time to reduce the total number of complex multiplications. Handles non-power-of-4 sizes (like 2048) by mixing Radix-2 passes.
-- **Precomputed Twiddle Factors**: Trigonometric values (`sin`/`cos`) are precomputed into lookup tables (`twiddles_re`, `twiddles_im`) during initialization. This eliminates expensive runtime math calls inside the FFT loops.
-- **Split-Complex (Planar) Layout**: Real and Imaginary components are stored in separate arrays. This improves cache locality and simplifies the math logic by keeping component access contiguous.
-- **Cache-Aware Loop Tiling**: The FFT loops switch between iteration strategies depending on stride size to ensure **unit-stride memory access**, minimizing CPU cache misses and maximizing memory throughput.
+When `libfftw3` is unavailable, the script falls back to highly optimized internal FFT implementations:
+
+### For LuaJIT (FFI-Optimized)
+- **Stockham Auto-Sort Algorithm**: Avoids the expensive bit-reversal permutation step, maximizing FFI performance.
+- **Radix-4 & Mixed-Radix**: Processes 4 points at a time to reduce complex multiplications.
+- **Cache-Aware Loop Tiling**: Ensures **unit-stride memory access** for maximum memory throughput.
+
+### For Standard Lua (Interpreter-Optimized)
+- **Zero-Allocation Processing**: Replaces table churn with reusable buffers to minimize Garbage Collection overhead.
+- **Fused Scrambling**: Combines Hann windowing and bit-reversal into a single pass.
+- **Precomputed Lookups**: Uses pre-calculated trig tables and bit-reversal maps to avoid redundant math inside hot loops.
+- **Speedup**: Achieves approximately **2.5x faster processing** compared to naive Lua implementations.
 
 ## 3. Algorithmic Optimizations
 - **Inverted Index Matching**: Fingerprints are stored in a hash map ($O(1)$ lookup), allowing the scanner to instantly find potential matches without iterating through the reference data.

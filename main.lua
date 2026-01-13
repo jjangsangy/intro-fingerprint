@@ -399,24 +399,14 @@ end
 -- AUDIO ALGORITHM: CONSTELLATION HASHING
 -- ==========================================
 
--- Simple Cooley-Tukey FFT (Iterative for performance, bit-reversal approach)
--- Input: real array. Output: real, imag arrays.
-local function fft_simple(real_in, n)
-    if n <= 1 then return real_in, {} end
+-- FFT Cache for standard Lua path
+local lua_fft_cache = nil
 
-    -- This is a very basic Lua FFT. For production, a specialized library is better.
-    -- However, for 2048 points, this recursion might be too deep/slow in Lua.
-    -- We'll use an iterative bit-reversal approach.
+local function init_lua_fft_cache(n)
+    if lua_fft_cache and lua_fft_cache.n == n then return end
 
     local m = math.log(n) / math.log(2)
-    local cos = math.cos
-    local sin = math.sin
-    local pi = math.pi
-
-    local real = {}
-    local imag = {}
-
-    -- Bit reversal
+    local rev = {}
     for i = 0, n - 1 do
         local j = 0
         local k = i
@@ -424,35 +414,71 @@ local function fft_simple(real_in, n)
             j = j * 2 + (k % 2)
             k = math.floor(k / 2)
         end
-        real[j + 1] = real_in[i + 1] or 0
-        imag[j + 1] = 0
+        rev[i + 1] = j + 1
     end
+
+    local twiddles_re = {}
+    local twiddles_im = {}
+    local k = 1
+    while k < n do
+        twiddles_re[k] = {}
+        twiddles_im[k] = {}
+        for i = 0, k - 1 do
+            local angle = -math.pi * i / k
+            twiddles_re[k][i] = math.cos(angle)
+            twiddles_im[k][i] = math.sin(angle)
+        end
+        k = k * 2
+    end
+
+    local hann = {}
+    for i = 0, n - 1 do
+        hann[i + 1] = 0.5 * (1 - math.cos(2 * math.pi * i / (n - 1)))
+    end
+
+    lua_fft_cache = {
+        rev = rev,
+        twiddles_re = twiddles_re,
+        twiddles_im = twiddles_im,
+        hann = hann,
+        n = n
+    }
+end
+
+-- Optimized Cooley-Tukey FFT for standard Lua (In-place)
+local function fft_lua_optimized(real, imag, n)
+    local cache = lua_fft_cache
+    local tw_re = cache.twiddles_re
+    local tw_im = cache.twiddles_im
 
     local k = 1
     while k < n do
         local step = k * 2
+        local tre = tw_re[k]
+        local tim = tw_im[k]
         for i = 0, k - 1 do
-            local angle = -pi * i / k
-            local w_real = cos(angle)
-            local w_imag = sin(angle)
+            local w_real = tre[i]
+            local w_imag = tim[i]
 
             for j = i, n - 1, step do
                 local idx1 = j + 1
                 local idx2 = j + k + 1
 
-                local t_real = w_real * real[idx2] - w_imag * imag[idx2]
-                local t_imag = w_real * imag[idx2] + w_imag * real[idx2]
+                local r2 = real[idx2]
+                local i2 = imag[idx2]
+                local t_real = w_real * r2 - w_imag * i2
+                local t_imag = w_real * i2 + w_imag * r2
 
-                real[idx2] = real[idx1] - t_real
-                imag[idx2] = imag[idx1] - t_imag
-                real[idx1] = real[idx1] + t_real
-                imag[idx1] = imag[idx1] + t_imag
+                local r1 = real[idx1]
+                local i1 = imag[idx1]
+                real[idx2] = r1 - t_real
+                imag[idx2] = i1 - t_imag
+                real[idx1] = r1 + t_real
+                imag[idx1] = i1 + t_imag
             end
         end
         k = step
     end
-
-    return real, imag
 end
 
 -- Extract peaks from magnitude spectrum
@@ -914,21 +940,27 @@ local function process_audio_data(pcm_str)
     end
 
     local num_samples = #samples
-    local hann = {}
-    for i = 0, fft_size - 1 do
-        hann[i + 1] = 0.5 * (1 - math.cos(2 * math.pi * i / (fft_size - 1)))
-    end
+    init_lua_fft_cache(fft_size)
+
+    local cache = lua_fft_cache
+    local rev = cache.rev
+    local hann = cache.hann
+    local real_buf = {}
+    local imag_buf = {}
 
     for i = 1, num_samples - fft_size + 1, hop_size do
-        local window = {}
+        -- Scramble into buffer while applying Hann window
         for j = 0, fft_size - 1 do
-            window[j + 1] = samples[i + j] * hann[j + 1]
+            local target = rev[j + 1]
+            real_buf[target] = samples[i + j] * hann[j + 1]
+            imag_buf[target] = 0
         end
 
-        local real, imag = fft_simple(window, fft_size)
+        fft_lua_optimized(real_buf, imag_buf, fft_size)
+
         local mags = {}
         for k = 1, fft_size / 2 do
-            mags[k] = math.sqrt(real[k] ^ 2 + imag[k] ^ 2)
+            mags[k] = math.sqrt(real_buf[k] ^ 2 + imag_buf[k] ^ 2)
         end
 
         local peaks = get_peaks(mags, fft_size / 2)

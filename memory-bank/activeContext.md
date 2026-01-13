@@ -18,6 +18,7 @@ The script is in a functional and feature-complete state for its primary goal of
 - **Implemented Concurrency**: Parallelized audio scanning using a worker pool of FFmpeg subprocesses.
 - **Improved Skip Reliability**: Added match ratio filtering and high-confidence optimal stopping thresholds to eliminate false positives.
 - **Robust Resource Management**: Documented and verified the `abort_scan` mechanism using `mp.abort_async_command` to ensure no orphan processes remain on file close.
+- **Log Alignment & Table Format**: Converted "Processed segment" debug logs into an aligned table format with a `header_printed` flag to prevent initialization logs (like FFTW loading) from breaking the table structure.
 
 ## Current Focus
 - User feedback and stability improvements.

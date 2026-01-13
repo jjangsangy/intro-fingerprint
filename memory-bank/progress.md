@@ -8,6 +8,7 @@
 - [x] **Ratio-Based Filtering**: Density-based confidence scoring to eliminate false positives.
 - [x] **Matching Robustness**: Implemented **Neighbor Bin Summing** to prevent "bin splitting" failures and improve reliability under timing jitter.
 - [x] **Optimal Stopping**: Gradient-based early termination for efficient scanning.
+- [x] **Aligned Debug Tables**: Converted per-segment scanning logs into an aligned table format for better readability.
 - [x] **Video Fingerprinting**: dHash implementation for frame matching.
 - [x] **Audio Fingerprinting**: Constellation hashing with FFT-based peak detection.
 - [x] **Async Processing**: Use of MPV coroutines and async subprocesses.

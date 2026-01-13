@@ -1270,6 +1270,7 @@ local function skip_intro_audio()
         local stop_flag = false
         local previous_local_max = 0
         local last_processed_time = -segment_dur
+        local header_printed = false
 
         local co = coroutine.running()
 
@@ -1363,8 +1364,14 @@ local function skip_intro_audio()
                 end
 
                 local local_ratio = local_max / total_intro_hashes
-                log_info(string.format("Processed segment %.1f: Local max %d (Ratio: %.2f)", target_time, local_max,
-                    local_ratio))
+
+                if not header_printed then
+                    log_info(string.format("| %-11s | %-5s | %-5s |", "Segment (s)", "Score", "Ratio"))
+                    log_info("|-------------|-------|-------|")
+                    header_printed = true
+                end
+
+                log_info(string.format("| %11.1f | %5d | %5.2f |", target_time, local_max, local_ratio))
 
                 -- Gradient-based early stopping (Ordered check)
                 -- Only consider matches that meet the minimum match ratio

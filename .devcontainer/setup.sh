@@ -31,7 +31,7 @@ EOF
 # These conflict with the script's Ctrl+s binding (Audio Skip)
 cat <<EOF > "$MPV_CONFIG_DIR/input.conf"
 s ignore
-Ctrl+s script-binding intro-fingerprint/skip-intro-audio
+Ctrl+s script-binding skip-intro-audio
 EOF
 
 echo "MPV environment configured successfully at $MPV_CONFIG_DIR"

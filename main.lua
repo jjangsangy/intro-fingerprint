@@ -997,7 +997,7 @@ local function save_intro()
         return
     end
 
-    mp.osd_message("Generating fingerprints...", 120)
+    mp.osd_message("Generating fingerprints...")
 
     -- --- VIDEO SAVE ---
     local fp_path_v = get_video_fingerprint_path()
@@ -1135,9 +1135,11 @@ local function skip_intro_video()
         local total_duration = mp.get_property_number("duration") or math.huge
 
         mp.osd_message(
-            string.format("Scanning Video %d%%...",
-                math.floor(options.video_search_window / options.video_max_search_window * 100)),
-            60)
+            string.format(
+                "Scanning Video %d%%...",
+                math.floor(options.video_search_window / options.video_max_search_window * 100)
+            )
+        )
 
         local window_size = options.video_search_window
         local scanned_start = math.max(0, saved_time - window_size)
@@ -1166,9 +1168,11 @@ local function skip_intro_video()
             if scanned_start == old_start and scanned_end == old_end then break end
 
             mp.osd_message(
-                string.format("Scanning Video %d%%...",
-                    math.min(100, math.floor(window_size / options.video_max_search_window * 100))),
-                60)
+                string.format(
+                    "Scanning Video %d%%...",
+                    math.min(100, math.floor(window_size / options.video_max_search_window * 100))
+                )
+            )
 
             if scanned_start < old_start then
                 local d, t = scan_video_segment(scanned_start, old_start - scanned_start, current_video, target_bytes,
@@ -1415,7 +1419,7 @@ local function skip_intro_audio()
                 last_processed_time = target_time
                 target_time = last_processed_time + segment_dur
                 processed_count = processed_count + 1
-                mp.osd_message(string.format("Scanning Audio %d%%...", math.floor(target_time / max_scan_time * 100)), 1)
+                mp.osd_message(string.format("Scanning Audio %d%%...", math.floor(target_time / max_scan_time * 100)))
             end
 
             if not stop_flag and (next_scan_time < max_scan_time or active_workers > 0) then

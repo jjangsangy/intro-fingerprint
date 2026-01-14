@@ -1225,14 +1225,12 @@ local function skip_intro_audio()
         local total_intro_hashes = 0
         for l in file:lines() do
             local h, t = string.match(l, "([%-]?%d+) ([%d%.]+)")
+            h = tonumber(h)
+            t = tonumber(t)
             if h and t then
-                h = tonumber(h)
-                t = tonumber(t)
-                if h and t then
-                    if not saved_hashes[h] then saved_hashes[h] = {} end
-                    table.insert(saved_hashes[h], t)
-                    total_intro_hashes = total_intro_hashes + 1
-                end
+                if not saved_hashes[h] then saved_hashes[h] = {} end
+                table.insert(saved_hashes[h], t)
+                total_intro_hashes = total_intro_hashes + 1
             end
         end
         file:close()

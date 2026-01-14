@@ -16,7 +16,7 @@ local options = {
     audio_segment_duration = 15,     -- duration of each scan segment in seconds
     audio_concurrency = 4,           -- number of concurrent ffmpeg workers
     audio_min_match_ratio = 0.25,    -- minimum percentage of hashes that must match (0.0 - 1.0)
-    audio_normalize = "yes",         -- use dynaudnorm to normalize audio levels
+    audio_normalize = "yes",         -- use dynaudnorm to normalize audio levels (balanced preset)
 
     -- Video: Configuration
     video_dhash_width = 9,         -- gradient hash requires specific dhash dimensions: 9x8
@@ -1045,7 +1045,7 @@ local function save_intro()
     }
     if options.audio_normalize == "yes" then
         table.insert(args_a, #args_a + 1, "-af")
-        table.insert(args_a, #args_a + 1, "dynaudnorm")
+        table.insert(args_a, #args_a + 1, "dynaudnorm=f=500:g=11:p=0.95:m=10.0")
     end
     table.insert(args_a, #args_a + 1, "-f")
     table.insert(args_a, #args_a + 1, "s16le")
@@ -1313,7 +1313,7 @@ local function skip_intro_audio()
             }
             if options.audio_normalize == "yes" then
                 table.insert(args, #args + 1, "-af")
-                table.insert(args, #args + 1, "dynaudnorm")
+                table.insert(args, #args + 1, "dynaudnorm=f=500:g=11:p=0.95:m=10.0")
             end
             table.insert(args, #args + 1, "-f")
             table.insert(args, #args + 1, "s16le")

@@ -18,6 +18,7 @@
 - [x] **FFTW Integration**: Ability to use `libfftw3` for faster FFTs.
 - [x] **Dockerized Build System**: Multi-stage Dockerfile for `libfftw3f` (Linux, Windows, and macOS M-series cross-compilation from source). Optimized Linux build using `manylinux2014` for broad compatibility.
 - [x] **DevContainer**: VS Code DevContainer for Ubuntu 24.04 with a custom-built `mpv-luajit` (v0.38.0) environment. Supports both X11 and Wayland (`wlshm`) video outputs for compatibility with WSLg.
+- [x] **Code Quality**: Refactored monolithic script to reduce branching and indentation depth using guard clauses.
 
 ## In Progress
 - [x] Initial Memory Bank Documentation.

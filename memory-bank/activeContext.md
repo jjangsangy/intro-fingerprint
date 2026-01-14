@@ -19,6 +19,7 @@ The script is in a functional and feature-complete state for its primary goal of
 - **Improved Skip Reliability**: Added match ratio filtering and high-confidence optimal stopping thresholds to eliminate false positives.
 - **Robust Resource Management**: Documented and verified the `abort_scan` mechanism using `mp.abort_async_command` to ensure no orphan processes remain on file close.
 - **Log Alignment & Table Format**: Converted "Processed segment" debug logs into an aligned table format with a `header_printed` flag to prevent initialization logs (like FFTW loading) from breaking the table structure.
+- **Code Refactor (Flattening)**: Refactored `main.lua` to reduce indentation and branching. Applied guard clauses and inverted control flow in `process_audio_data`, `save_intro`, `get_peaks`, and asynchronous worker callbacks.
 
 ## Current Focus
 - User feedback and stability improvements.

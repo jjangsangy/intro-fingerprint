@@ -501,17 +501,17 @@ local function get_peaks(magnitudes, freq_bin_count)
     end
     -- Sort peaks by magnitude? Optional. We just take them.
     -- Limit number of peaks per frame to avoid noise
-    if #peaks > 5 then
-        -- Keep top 5
-        local sorted = {}
-        for _, p in ipairs(peaks) do
-            table.insert(sorted, { idx = p, mag = magnitudes[p] })
-        end
-        table.sort(sorted, function(a, b) return a.mag > b.mag end)
-        peaks = {}
-        for i = 1, 5 do
-            table.insert(peaks, sorted[i].idx)
-        end
+    if #peaks <= 5 then return peaks end
+
+    -- Keep top 5
+    local sorted = {}
+    for _, p in ipairs(peaks) do
+        table.insert(sorted, { idx = p, mag = magnitudes[p] })
+    end
+    table.sort(sorted, function(a, b) return a.mag > b.mag end)
+    peaks = {}
+    for i = 1, 5 do
+        table.insert(peaks, sorted[i].idx)
     end
     return peaks
 end
@@ -815,172 +815,172 @@ end
 local function process_audio_data(pcm_str)
     local fft_size = options.audio_fft_size
     local hop_size = options.audio_hop_size
-    local spectrogram = {}
-
-    -- --- FFI PATH ---
-    if ffi_status then
-        local num_samples = math.floor(#pcm_str / 2)
-        local ptr = ffi.cast("int16_t*", pcm_str)
-
-        -- FFTW logic branch
-        if options.audio_use_fftw == "yes" then
-            if not fftw_lib and not fftw_path_tried then
-                fftw_path_tried = true
-                msg.info("FFTW enabled in config. Searching for library...")
-                fftw_lib = load_fftw_library()
-                if not fftw_lib then
-                    msg.error("Could not find or load FFTW library. Falling back to internal FFT.")
-                end
-            end
-
-            if fftw_lib then
-                local samples = ffi.new("double[?]", num_samples)
-                for i = 0, num_samples - 1 do
-                    samples[i] = ptr[i] / 32768.0
-                end
-
-                local hann = ffi.new("double[?]", fft_size)
-                for i = 0, fft_size - 1 do
-                    hann[i] = 0.5 * (1.0 - math.cos(2.0 * math.pi * i / (fft_size - 1)))
-                end
-
-                local fft_in = fftw_lib.fftwf_malloc(ffi.sizeof("fftwf_complex") * fft_size)
-                local fft_out = fftw_lib.fftwf_malloc(ffi.sizeof("fftwf_complex") * fft_size)
-                local fft_in_c = ffi.cast("fftwf_complex*", fft_in)
-                local fft_out_c = ffi.cast("fftwf_complex*", fft_out)
-
-                -- FFTW_FORWARD = -1, FFTW_ESTIMATE = 64
-                local plan = fftw_lib.fftwf_plan_dft_1d(fft_size, fft_in_c, fft_out_c, -1, 64)
-
-                local num_frames = math.floor((num_samples - fft_size) / hop_size) + 1
-                if num_frames < 0 then num_frames = 0 end
-
-                local peaks_flat = ffi.new("int16_t[?]", num_frames * 5)
-                local counts = ffi.new("int8_t[?]", num_frames)
-                local mag_buf = ffi.new("double[?]", fft_size / 2)
-                local threshold_sq = options.audio_threshold * options.audio_threshold
-
-                for i = 0, num_frames - 1 do
-                    local sample_idx = i * hop_size
-                    for j = 0, fft_size - 1 do
-                        fft_in_c[j][0] = samples[sample_idx + j] * hann[j]
-                        fft_in_c[j][1] = 0.0
-                    end
-
-                    fftw_lib.fftwf_execute(plan)
-                    for k = 0, fft_size / 2 - 1 do
-
-                        -- Using squared magnitude to avoid sqrt
-                        local r = fft_out_c[k][0]
-                        local i_part = fft_out_c[k][1]
-                        mag_buf[k] = r * r + i_part * i_part
-                    end
-                    counts[i] = get_peaks_ffi(mag_buf, peaks_flat + i * 5, fft_size / 2, threshold_sq)
-                end
-
-                fftw_lib.fftwf_destroy_plan(plan)
-                fftw_lib.fftwf_free(fft_in)
-                fftw_lib.fftwf_free(fft_out)
-
-                return generate_hashes_ffi(peaks_flat, counts, num_frames)
-            end
-        end
-
-        -- Original FFI Path (Fallback)
-        local samples = ffi.new("double[?]", num_samples)
-        for i = 0, num_samples - 1 do
-            samples[i] = ptr[i] / 32768.0
-        end
-
-        -- Pre-calculate Hann Window
-        local hann = ffi.new("double[?]", fft_size)
-        for i = 0, fft_size - 1 do
-            hann[i] = 0.5 * (1.0 - math.cos(2.0 * math.pi * i / (fft_size - 1)))
-        end
-
-        -- Buffers for FFT
-        local real_buf = ffi.new("double[?]", fft_size)
-        local imag_buf = ffi.new("double[?]", fft_size)
-        local work_re = ffi.new("double[?]", fft_size)
-        local work_im = ffi.new("double[?]", fft_size)
-        local mag_buf = ffi.new("double[?]", fft_size / 2)
-        local threshold_sq = options.audio_threshold * options.audio_threshold
-
-        local num_frames = math.floor((num_samples - fft_size) / hop_size) + 1
-        if num_frames < 0 then num_frames = 0 end
-
-        -- Spectrogram storage: 5 peaks per frame
-        local peaks_flat = ffi.new("int16_t[?]", num_frames * 5)
-        local counts = ffi.new("int8_t[?]", num_frames)
-
-        for i = 0, num_frames - 1 do
-            local sample_idx = i * hop_size
-            for j = 0, fft_size - 1 do
-                real_buf[j] = samples[sample_idx + j] * hann[j]
-                imag_buf[j] = 0.0
-            end
-
-            fft_stockham(real_buf, imag_buf, work_re, work_im, fft_size)
-
-            for k = 0, fft_size / 2 - 1 do
-                -- Using squared magnitude to avoid sqrt
-                local r = real_buf[k]
-                local i_part = imag_buf[k]
-                mag_buf[k] = r * r + i_part * i_part
-            end
-
-            -- Writes directly to flat array
-            counts[i] = get_peaks_ffi(mag_buf, peaks_flat + i * 5, fft_size / 2, threshold_sq)
-        end
-
-        return generate_hashes_ffi(peaks_flat, counts, num_frames)
-    end
 
     -- --- LUA TABLE PATH (Fallback) ---
-    local samples = {}
-    -- Convert s16le string to samples
-    for i = 1, #pcm_str, 2 do
-        local b1 = string.byte(pcm_str, i)
-        local b2 = string.byte(pcm_str, i + 1)
-        local val = b1 + b2 * 256
-        if val > 32767 then val = val - 65536 end
-        table.insert(samples, val / 32768.0)
+    if not ffi_status then
+        local spectrogram = {}
+        local samples = {}
+        -- Convert s16le string to samples
+        for i = 1, #pcm_str, 2 do
+            local b1 = string.byte(pcm_str, i)
+            local b2 = string.byte(pcm_str, i + 1)
+            local val = b1 + b2 * 256
+            if val > 32767 then val = val - 65536 end
+            table.insert(samples, val / 32768.0)
+        end
+
+        local num_samples = #samples
+        init_lua_fft_cache(fft_size)
+
+        local cache = lua_fft_cache
+        if not cache then
+            msg.error("FFT cache not initialized")
+            return {}, 0
+        end
+        local rev = cache.rev
+        local hann = cache.hann
+        local real_buf = {}
+        local imag_buf = {}
+
+        for i = 1, num_samples - fft_size + 1, hop_size do
+            -- Scramble into buffer while applying Hann window
+            for j = 0, fft_size - 1 do
+                local target = rev[j + 1]
+                real_buf[target] = samples[i + j] * hann[j + 1]
+                imag_buf[target] = 0
+            end
+
+            fft_lua_optimized(real_buf, imag_buf, fft_size)
+
+            local mags = {}
+            for k = 1, fft_size / 2 do
+                mags[k] = math.sqrt(real_buf[k] ^ 2 + imag_buf[k] ^ 2)
+            end
+
+            local peaks = get_peaks(mags, fft_size / 2)
+            table.insert(spectrogram, peaks)
+        end
+
+        local hashes = generate_hashes(spectrogram)
+        return hashes, #hashes
     end
 
-    local num_samples = #samples
-    init_lua_fft_cache(fft_size)
+    -- --- FFI PATH ---
+    local num_samples = math.floor(#pcm_str / 2)
+    local ptr = ffi.cast("int16_t*", pcm_str)
 
-    local cache = lua_fft_cache
-    if not cache then
-        msg.error("FFT cache not initialized")
-        return {}, 0
+    -- FFTW logic branch
+    if options.audio_use_fftw == "yes" then
+        if not fftw_lib and not fftw_path_tried then
+            fftw_path_tried = true
+            msg.info("FFTW enabled in config. Searching for library...")
+            fftw_lib = load_fftw_library()
+            if not fftw_lib then
+                msg.error("Could not find or load FFTW library. Falling back to internal FFT.")
+            end
+        end
+
+        if fftw_lib then
+            local samples = ffi.new("double[?]", num_samples)
+            for i = 0, num_samples - 1 do
+                samples[i] = ptr[i] / 32768.0
+            end
+
+            local hann = ffi.new("double[?]", fft_size)
+            for i = 0, fft_size - 1 do
+                hann[i] = 0.5 * (1.0 - math.cos(2.0 * math.pi * i / (fft_size - 1)))
+            end
+
+            local fft_in = fftw_lib.fftwf_malloc(ffi.sizeof("fftwf_complex") * fft_size)
+            local fft_out = fftw_lib.fftwf_malloc(ffi.sizeof("fftwf_complex") * fft_size)
+            local fft_in_c = ffi.cast("fftwf_complex*", fft_in)
+            local fft_out_c = ffi.cast("fftwf_complex*", fft_out)
+
+            -- FFTW_FORWARD = -1, FFTW_ESTIMATE = 64
+            local plan = fftw_lib.fftwf_plan_dft_1d(fft_size, fft_in_c, fft_out_c, -1, 64)
+
+            local num_frames = math.floor((num_samples - fft_size) / hop_size) + 1
+            if num_frames < 0 then num_frames = 0 end
+
+            local peaks_flat = ffi.new("int16_t[?]", num_frames * 5)
+            local counts = ffi.new("int8_t[?]", num_frames)
+            local mag_buf = ffi.new("double[?]", fft_size / 2)
+            local threshold_sq = options.audio_threshold * options.audio_threshold
+
+            for i = 0, num_frames - 1 do
+                local sample_idx = i * hop_size
+                for j = 0, fft_size - 1 do
+                    fft_in_c[j][0] = samples[sample_idx + j] * hann[j]
+                    fft_in_c[j][1] = 0.0
+                end
+
+                fftw_lib.fftwf_execute(plan)
+                for k = 0, fft_size / 2 - 1 do
+
+                    -- Using squared magnitude to avoid sqrt
+                    local r = fft_out_c[k][0]
+                    local i_part = fft_out_c[k][1]
+                    mag_buf[k] = r * r + i_part * i_part
+                end
+                counts[i] = get_peaks_ffi(mag_buf, peaks_flat + i * 5, fft_size / 2, threshold_sq)
+            end
+
+            fftw_lib.fftwf_destroy_plan(plan)
+            fftw_lib.fftwf_free(fft_in)
+            fftw_lib.fftwf_free(fft_out)
+
+            return generate_hashes_ffi(peaks_flat, counts, num_frames)
+        end
     end
-    local rev = cache.rev
-    local hann = cache.hann
-    local real_buf = {}
-    local imag_buf = {}
 
-    for i = 1, num_samples - fft_size + 1, hop_size do
-        -- Scramble into buffer while applying Hann window
+    -- Original FFI Path (Fallback)
+    local samples = ffi.new("double[?]", num_samples)
+    for i = 0, num_samples - 1 do
+        samples[i] = ptr[i] / 32768.0
+    end
+
+    -- Pre-calculate Hann Window
+    local hann = ffi.new("double[?]", fft_size)
+    for i = 0, fft_size - 1 do
+        hann[i] = 0.5 * (1.0 - math.cos(2.0 * math.pi * i / (fft_size - 1)))
+    end
+
+    -- Buffers for FFT
+    local real_buf = ffi.new("double[?]", fft_size)
+    local imag_buf = ffi.new("double[?]", fft_size)
+    local work_re = ffi.new("double[?]", fft_size)
+    local work_im = ffi.new("double[?]", fft_size)
+    local mag_buf = ffi.new("double[?]", fft_size / 2)
+    local threshold_sq = options.audio_threshold * options.audio_threshold
+
+    local num_frames = math.floor((num_samples - fft_size) / hop_size) + 1
+    if num_frames < 0 then num_frames = 0 end
+
+    -- Spectrogram storage: 5 peaks per frame
+    local peaks_flat = ffi.new("int16_t[?]", num_frames * 5)
+    local counts = ffi.new("int8_t[?]", num_frames)
+
+    for i = 0, num_frames - 1 do
+        local sample_idx = i * hop_size
         for j = 0, fft_size - 1 do
-            local target = rev[j + 1]
-            real_buf[target] = samples[i + j] * hann[j + 1]
-            imag_buf[target] = 0
+            real_buf[j] = samples[sample_idx + j] * hann[j]
+            imag_buf[j] = 0.0
         end
 
-        fft_lua_optimized(real_buf, imag_buf, fft_size)
+        fft_stockham(real_buf, imag_buf, work_re, work_im, fft_size)
 
-        local mags = {}
-        for k = 1, fft_size / 2 do
-            mags[k] = math.sqrt(real_buf[k] ^ 2 + imag_buf[k] ^ 2)
+        for k = 0, fft_size / 2 - 1 do
+            -- Using squared magnitude to avoid sqrt
+            local r = real_buf[k]
+            local i_part = imag_buf[k]
+            mag_buf[k] = r * r + i_part * i_part
         end
 
-        local peaks = get_peaks(mags, fft_size / 2)
-        table.insert(spectrogram, peaks)
+        -- Writes directly to flat array
+        counts[i] = get_peaks_ffi(mag_buf, peaks_flat + i * 5, fft_size / 2, threshold_sq)
     end
 
-    local hashes = generate_hashes(spectrogram)
-    return hashes, #hashes
+    return generate_hashes_ffi(peaks_flat, counts, num_frames)
 end
 
 -- ==========================================
@@ -1031,45 +1031,50 @@ local function save_intro()
     local start_a = math.max(0, time_pos - options.audio_fingerprint_duration)
     local dur_a = time_pos - start_a
 
-    if dur_a > 1 then
-        local args_a = {
-            "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-vn", "-sn",
-            "-ss", tostring(start_a), "-t", tostring(dur_a),
-            "-i", path, "-map", "a:0",
-            "-ac", "1", "-ar", tostring(options.audio_sample_rate),
-            "-f", "s16le", "-y", "-"
-        }
-        local res_a = utils.subprocess({ args = args_a, cancellable = false, capture_stderr = true })
+    if dur_a <= 1 then
+        mp.osd_message("Intro Captured! (Video + Audio)", 2)
+        return
+    end
 
-        if res_a.status == 0 and res_a.stdout and #res_a.stdout > 0 then
-            local hashes, count = process_audio_data(res_a.stdout)
-            log_info("Generated " .. count .. " audio hashes")
+    local args_a = {
+        "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-vn", "-sn",
+        "-ss", tostring(start_a), "-t", tostring(dur_a),
+        "-i", path, "-map", "a:0",
+        "-ac", "1", "-ar", tostring(options.audio_sample_rate),
+        "-f", "s16le", "-y", "-"
+    }
+    local res_a = utils.subprocess({ args = args_a, cancellable = false, capture_stderr = true })
 
-            local file_a = io.open(fp_path_a, "wb")
-            if file_a then
-                -- Format:
-                -- Line 1: Header/Version
-                -- Line 2: Duration of the capture (offset to skip to)
-                -- Lines 3+: hash time
-                file_a:write("# INTRO_FINGERPRINT_V1\n")
-                file_a:write(string.format("%.4f\n", dur_a))
+    if res_a.status ~= 0 or not res_a.stdout or #res_a.stdout == 0 then
+        log_info("Error capturing audio: " .. (res_a.stderr or "unknown"))
+        mp.osd_message("Intro Captured! (Video + Audio)", 2)
+        return
+    end
 
-                local factor = options.audio_hop_size / options.audio_sample_rate
-                if ffi_status and type(hashes) == "cdata" then
-                    for i = 0, count - 1 do
-                        local h = hashes[i]
-                        file_a:write(string.format("%d %.4f\n", h.h, h.t * factor))
-                    end
-                else
-                    for _, h in ipairs(hashes) do
-                        file_a:write(string.format("%d %.4f\n", h.h, h.t * factor))
-                    end
-                end
-                file_a:close()
+    local hashes, count = process_audio_data(res_a.stdout)
+    log_info("Generated " .. count .. " audio hashes")
+
+    local file_a = io.open(fp_path_a, "wb")
+    if file_a then
+        -- Format:
+        -- Line 1: Header/Version
+        -- Line 2: Duration of the capture (offset to skip to)
+        -- Lines 3+: hash time
+        file_a:write("# INTRO_FINGERPRINT_V1\n")
+        file_a:write(string.format("%.4f\n", dur_a))
+
+        local factor = options.audio_hop_size / options.audio_sample_rate
+        if ffi_status and type(hashes) == "cdata" then
+            for i = 0, count - 1 do
+                local h = hashes[i]
+                file_a:write(string.format("%d %.4f\n", h.h, h.t * factor))
             end
         else
-            log_info("Error capturing audio: " .. (res_a.stderr or "unknown"))
+            for _, h in ipairs(hashes) do
+                file_a:write(string.format("%d %.4f\n", h.h, h.t * factor))
+            end
         end
+        file_a:close()
     end
     mp.osd_message("Intro Captured! (Video + Audio)", 2)
 end
@@ -1302,12 +1307,14 @@ local function skip_intro_audio()
                     active_workers = active_workers - 1
                     perf_stats.ffmpeg = perf_stats.ffmpeg + (mp.get_time() - ffmpeg_start)
 
-                    if success and res.status == 0 and res.stdout and not stop_flag then
-                        local chunk_hashes, ch_count = process_audio_data(res.stdout)
-                        results_buffer[scan_time] = { hashes = chunk_hashes, count = ch_count }
-                    else
+                    if not (success and res.status == 0 and res.stdout and not stop_flag) then
                         results_buffer[scan_time] = { hashes = {}, count = 0 }
+                        if co then coroutine.resume(co) end
+                        return
                     end
+
+                    local chunk_hashes, ch_count = process_audio_data(res.stdout)
+                    results_buffer[scan_time] = { hashes = chunk_hashes, count = ch_count }
 
                     if co then coroutine.resume(co) end
                 end)

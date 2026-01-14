@@ -24,6 +24,7 @@
 
 ## Optimization Decisions
 - **dHash (9x8)**: Chosen for its speed and invariance to brightness/contrast changes.
+- **Audio Normalization**: Uses `dynaudnorm` to ensure spectral consistency regardless of source volume.
 - **Spectrogram Parameters**:
     - Sample Rate: 11025 Hz (sufficient for frequency peaks while minimizing data size).
     - FFT Size: 2048 (balanced frequency resolution).

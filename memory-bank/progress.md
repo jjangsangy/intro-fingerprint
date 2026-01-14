@@ -7,6 +7,7 @@
 - [x] **Offset Histogram Matching**: Robust time-offset clustering logic for precise sync.
 - [x] **Ratio-Based Filtering**: Density-based confidence scoring to eliminate false positives.
 - [x] **Matching Robustness**: Implemented **Neighbor Bin Summing** to prevent "bin splitting" failures and improve reliability under timing jitter.
+- [x] **Audio Normalization**: Added volume-invariant fingerprinting using `dynaudnorm` to fix inconsistent match ratios across different file encodes.
 - [x] **Optimal Stopping**: Gradient-based early termination for efficient scanning.
 - [x] **Aligned Debug Tables**: Converted per-segment scanning logs into an aligned table format for better readability.
 - [x] **Video Fingerprinting**: dHash implementation for frame matching.

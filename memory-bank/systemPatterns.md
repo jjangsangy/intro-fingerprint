@@ -14,6 +14,7 @@ The script is a monolithic Lua script (`main.lua`) that integrates with MPV. It 
 
 ### 2. Audio Fingerprinting: Constellation Hashing
 - **Extraction**: FFmpeg extracts raw PCM (`s16le`, mono, 11025Hz).
+- **Normalization**: Applies `dynaudnorm` filter to the audio stream. This ensures consistent spectral peaks regardless of source volume or original mixing, making the algorithm volume-invariant.
 - **Processing**:
     - FFT:
         - **LuaJIT FFI**: Uses FFTW3 (if available) or an FFI-optimized Stockham Radix-4 & Mixed-Radix implementation.

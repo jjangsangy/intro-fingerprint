@@ -16,6 +16,7 @@ local options = {
     audio_segment_duration = 15,     -- duration of each scan segment in seconds
     audio_concurrency = 4,           -- number of concurrent ffmpeg workers
     audio_min_match_ratio = 0.25,    -- minimum percentage of hashes that must match (0.0 - 1.0)
+    audio_normalize = "yes",         -- use dynaudnorm to normalize audio levels
 
     -- Video: Configuration
     video_dhash_width = 9,         -- gradient hash requires specific dhash dimensions: 9x8
@@ -1040,9 +1041,16 @@ local function save_intro()
         "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-vn", "-sn",
         "-ss", tostring(start_a), "-t", tostring(dur_a),
         "-i", path, "-map", "a:0",
-        "-ac", "1", "-ar", tostring(options.audio_sample_rate),
-        "-f", "s16le", "-y", "-"
+        "-ac", "1", "-ar", tostring(options.audio_sample_rate)
     }
+    if options.audio_normalize == "yes" then
+        table.insert(args_a, #args_a + 1, "-af")
+        table.insert(args_a, #args_a + 1, "dynaudnorm")
+    end
+    table.insert(args_a, #args_a + 1, "-f")
+    table.insert(args_a, #args_a + 1, "s16le")
+    table.insert(args_a, #args_a + 1, "-y")
+    table.insert(args_a, #args_a + 1, "-")
     local res_a = utils.subprocess({ args = args_a, cancellable = false, capture_stderr = true })
 
     if res_a.status ~= 0 or not res_a.stdout or #res_a.stdout == 0 then
@@ -1301,9 +1309,16 @@ local function skip_intro_audio()
                 "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-vn", "-sn",
                 "-ss", tostring(scan_time), "-t", tostring(segment_dur + padding),
                 "-i", path, "-map", "a:0",
-                "-ac", "1", "-ar", tostring(options.audio_sample_rate),
-                "-f", "s16le", "-y", "-"
+                "-ac", "1", "-ar", tostring(options.audio_sample_rate)
             }
+            if options.audio_normalize == "yes" then
+                table.insert(args, #args + 1, "-af")
+                table.insert(args, #args + 1, "dynaudnorm")
+            end
+            table.insert(args, #args + 1, "-f")
+            table.insert(args, #args + 1, "s16le")
+            table.insert(args, #args + 1, "-y")
+            table.insert(args, #args + 1, "-")
 
             local ffmpeg_start = mp.get_time()
             mp.command_native_async({ name = "subprocess", args = args, capture_stdout = true },

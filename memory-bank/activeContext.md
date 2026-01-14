@@ -20,7 +20,7 @@ The script is in a functional and feature-complete state for its primary goal of
 - **Robust Resource Management**: Documented and verified the `abort_scan` mechanism using `mp.abort_async_command` to ensure no orphan processes remain on file close.
 - **Log Alignment & Table Format**: Converted "Processed segment" debug logs into an aligned table format with a `header_printed` flag to prevent initialization logs (like FFTW loading) from breaking the table structure.
 - **Code Refactor (Flattening)**: Refactored `main.lua` to reduce indentation and branching. Applied guard clauses and inverted control flow in `process_audio_data`, `save_intro`, `get_peaks`, and asynchronous worker callbacks.
-- **Audio Normalization**: Mandatory audio normalization using FFmpeg's `dynaudnorm` filter. This ensures consistent spectral peak detection across files with different volume levels or channel mixdowns (e.g., 5.1 vs Stereo). This filter is applied unconditionally to all audio extractions.
+- **Audio Normalization**: Mandatory audio normalization using FFmpeg's `dynaudnorm` filter. This ensures consistent spectral peak detection across files with different volume levels or channel mixdowns (e.g., 5.1 vs Stereo). This filter is applied unconditionally to all audio extractions using its default settings for optimal balance of results and performance.
 
 ## Current Focus
 - User feedback and stability improvements.
@@ -32,7 +32,7 @@ The script is in a functional and feature-complete state for its primary goal of
     2.  **Stockham Radix-4 & Mixed-Radix (FFI)**: High performance fallback for LuaJIT when FFTW3 is missing.
     3.  **Optimized Cooley-Tukey (Standard Lua)**: Optimized fallback for builds without LuaJIT, using precomputed tables and zero-allocation buffers.
 - **Search Logic**: Video uses a centered expanding window; Audio uses **concurrent linear scan** with chunked segments and ordered result processing.
-- **Normalization**: The script applies the `dynaudnorm` filter unconditionally to both the reference capture and the scan workers. To balance performance and stability, a "balanced" preset (`f=500:g=11`) is used. This reduces Gaussian smoothing calculations by ~65% compared to the default (`g=31`) while maintaining the window length required for consistent spectral peak detection.
+- **Normalization**: The script applies the `dynaudnorm` filter unconditionally to both the reference capture and the scan workers. It uses the default FFmpeg settings for `dynaudnorm`, which provides better normalization results with minimal performance impact compared to previous tuned presets.
 - **Match Ratios > 1.0**: Due to "Neighbor Bin Summing" and many-to-many hash matching (common in repetitive audio patterns), match ratios can occasionally exceed 1.0 (100%). This is considered normal behavior and indicates an extremely high-confidence match.
 
 ## Next Steps

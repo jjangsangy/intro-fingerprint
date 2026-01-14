@@ -1026,7 +1026,6 @@ local function save_intro()
         "-ss", tostring(start_a), "-t", tostring(dur_a),
         "-i", path, "-map", "a:0",
         "-ac", "1", "-ar", tostring(options.audio_sample_rate),
-        "-af", "dynaudnorm=f=500:g=11:p=0.95:m=10.0",
         "-f", "s16le", "-y", "-"
     }
     local res_a = utils.subprocess({ args = args_a, cancellable = false, capture_stderr = true })
@@ -1288,7 +1287,6 @@ local function skip_intro_audio()
                 "-ss", tostring(scan_time), "-t", tostring(segment_dur + padding),
                 "-i", path, "-map", "a:0",
                 "-ac", "1", "-ar", tostring(options.audio_sample_rate),
-                "-af", "dynaudnorm=f=500:g=11:p=0.95:m=10.0",
                 "-f", "s16le", "-y", "-"
             }
 

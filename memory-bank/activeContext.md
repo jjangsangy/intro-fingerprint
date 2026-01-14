@@ -32,7 +32,7 @@ The script is in a functional and feature-complete state for its primary goal of
     2.  **Stockham Radix-4 & Mixed-Radix (FFI)**: High performance fallback for LuaJIT when FFTW3 is missing.
     3.  **Optimized Cooley-Tukey (Standard Lua)**: Optimized fallback for builds without LuaJIT, using precomputed tables and zero-allocation buffers.
 - **Search Logic**: Video uses a centered expanding window; Audio uses **concurrent linear scan** with chunked segments and ordered result processing.
-- **Normalization**: The script applies the `dynaudnorm` filter unconditionally to both the reference capture and the scan workers. It uses the default FFmpeg settings for `dynaudnorm`, which provides better normalization results with minimal performance impact compared to previous tuned presets.
+- **Normalization**: The script applies the `dynaudnorm` filter unconditionally to both the reference capture and the scan workers using default settings. This ensures consistent spectral peak detection across files with different volume levels or channel mixdowns, maintaining stable match ratios.
 - **Match Ratios > 1.0**: Due to "Neighbor Bin Summing" and many-to-many hash matching (common in repetitive audio patterns), match ratios can occasionally exceed 1.0 (100%). This is considered normal behavior and indicates an extremely high-confidence match.
 
 ## Next Steps

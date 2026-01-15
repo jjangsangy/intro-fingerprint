@@ -18,8 +18,7 @@ local options = {
     audio_min_match_ratio = 0.30,    -- minimum percentage of hashes that must match (0.0 - 1.0)
 
     -- Video: Configuration
-    video_dhash_width = 9,         -- gradient hash requires specific dhash dimensions: 9x8
-    video_dhash_height = 8,
+    video_phash_size = 32,         -- pHash size (32x32 DCT -> 8x8 hash)
     video_interval = 0.20,         -- time interval to check in seconds (0.20 = 200ms)
     video_threshold = 12,          -- tolerance for Hamming Distance (0-64).
     video_search_window = 10,      -- seconds before/after saved timestamp to search
@@ -63,8 +62,8 @@ local MASK_14 = 16384    -- 2^14
 local SHIFT_14 = 16384   -- 2^14
 local SHIFT_23 = 8388608 -- 2^23
 
--- Frame size in bytes (9 * 8 = 72 bytes)
-local VIDEO_FRAME_SIZE = options.video_dhash_width * options.video_dhash_height
+-- Frame size in bytes (32 * 32 = 1024 bytes)
+local VIDEO_FRAME_SIZE = options.video_phash_size * options.video_phash_size
 
 -- Helper for debug logging
 local function log_info(str)
@@ -225,37 +224,258 @@ local function get_audio_fingerprint_path()
 end
 
 -- ==========================================
--- VIDEO ALGORITHM: GRADIENT HASH (dHash)
+-- VIDEO ALGORITHM: pHash (DCT-based)
 -- ==========================================
 
-local function compute_video_hash_from_chunk(bytes, start_index, is_ffi)
-    local hash = {}
+-- DCT-II IMPLEMENTATION (Makhoul's)
+local function dct_1d_makhoul_ffi(input_ptr, n, output_ptr, method, ctx)
+    local real = ctx.real
+    local imag = ctx.imag
 
-    for y = 0, 7 do
-        local row_byte = 0
-        local row_offset = (y * 9)
+    -- 1. Construct v[n] (Makhoul's reordering)
+    local half_n = math.floor(n / 2)
+    for i = 0, half_n - 1 do
+        real[i] = input_ptr[2 * i]
+    end
+    for i = 0, half_n - 1 do
+        real[half_n + i] = input_ptr[n - 1 - 2 * i]
+    end
+    for i = 0, n - 1 do imag[i] = 0.0 end
 
-        for x = 0, 7 do
-            local idx = start_index + row_offset + x
-            local p1, p2
+    -- 2. Compute FFT
+    if method == "fftw" and ctx.fftw_plan then
+        local in_c = ctx.fftw_in_c
+        local out_c = ctx.fftw_out_c
+        for i = 0, n - 1 do
+            in_c[i][0], in_c[i][1] = real[i], imag[i]
+        end
+        fftw_lib.fftwf_execute(ctx.fftw_plan)
+        for i = 0, n - 1 do
+            real[i], imag[i] = out_c[i][0], out_c[i][1]
+        end
+    elseif method == "lua" then
+        local l_re, l_im = ctx.l_re, ctx.l_im
+        local rev = lua_fft_caches[n].rev
+        for i = 0, n - 1 do
+            l_re[rev[i + 1]], l_im[rev[i + 1]] = tonumber(real[i]), tonumber(imag[i])
+        end
+        fft_lua_optimized(l_re, l_im, n)
+        for i = 0, n - 1 do
+            real[i], imag[i] = l_re[i + 1], l_im[i + 1]
+        end
+    else -- stockham
+        fft_stockham(real, imag, ctx.wr, ctx.wi, n)
+    end
 
-            if is_ffi then
-                p1 = bytes[idx]
-                p2 = bytes[idx + 1]
-            else
-                p1 = string.byte(bytes, idx + 1)
-                p2 = string.byte(bytes, idx + 2)
+    -- 3. Phase correction & Orthogonal Scaling
+    local pi_over_2n = math.pi / (2 * n)
+    local scale_ac = math.sqrt(2.0 / n)
+    local scale_dc = math.sqrt(1.0 / n)
+
+    for k = 0, n - 1 do
+        local angle = k * pi_over_2n
+        local val = 2.0 * (real[k] * math.cos(angle) + imag[k] * math.sin(angle))
+        if k == 0 then
+            output_ptr[k] = val * scale_dc
+        else
+            output_ptr[k] = val * scale_ac
+        end
+    end
+end
+
+local function dct_1d_makhoul_lua(input, n, output, ctx)
+    local real = ctx.real
+    local imag = ctx.imag
+
+    -- 1. Construct v[n] (Makhoul's reordering)
+    local half_n = math.floor(n / 2)
+    for i = 0, half_n - 1 do
+        real[i + 1] = input[2 * i + 1]
+    end
+    for i = 0, half_n - 1 do
+        real[half_n + i + 1] = input[n - 1 - 2 * i + 1]
+    end
+    for i = 1, n do imag[i] = 0.0 end
+
+    -- 2. Compute FFT
+    local l_re, l_im = ctx.l_re, ctx.l_im
+    local rev = lua_fft_caches[n].rev
+    for i = 0, n - 1 do
+        l_re[rev[i + 1]] = real[i + 1]
+        l_im[rev[i + 1]] = imag[i + 1]
+    end
+    fft_lua_optimized(l_re, l_im, n)
+    for i = 1, n do
+        real[i], imag[i] = l_re[i], l_im[i]
+    end
+
+    -- 3. Phase correction & Orthogonal Scaling
+    local pi_over_2n = math.pi / (2 * n)
+    local scale_ac = math.sqrt(2.0 / n)
+    local scale_dc = math.sqrt(1.0 / n)
+
+    for k = 0, n - 1 do
+        local angle = k * pi_over_2n
+        local val = 2.0 * (real[k + 1] * math.cos(angle) + imag[k + 1] * math.sin(angle))
+        if k == 0 then
+            output[k + 1] = val * scale_dc
+        else
+            output[k + 1] = val * scale_ac
+        end
+    end
+end
+
+local phash_fftw_cache = {}
+local phash_ctx_cache_ffi = {}
+local phash_ctx_cache_lua = {}
+
+local function compute_phash_32_ffi(bytes_ptr, start_index)
+    local n = 32
+    local data = ffi.new("double[1024]")
+    local sum = 0
+    for i = 0, 1023 do
+        local val = bytes_ptr[start_index + i]
+        data[i] = val
+        sum = sum + val
+    end
+    local mean = sum / 1024
+    for i = 0, 1023 do data[i] = data[i] - mean end
+
+    if not phash_ctx_cache_ffi[n] then
+        phash_ctx_cache_ffi[n] = {
+            real = ffi.new("double[?]", n),
+            imag = ffi.new("double[?]", n),
+            wr = ffi.new("double[?]", n),
+            wi = ffi.new("double[?]", n),
+            l_re = {},
+            l_im = {}
+        }
+    end
+    local ctx = phash_ctx_cache_ffi[n]
+
+    local method = "stockham"
+    if options.audio_use_fftw == "yes" then
+        if not fftw_lib and not fftw_path_tried then
+            fftw_path_tried = true
+            fftw_lib = load_fftw_library()
+        end
+        if fftw_lib then
+            method = "fftw"
+            if not phash_fftw_cache[n] then
+                local in_ptr = fftw_lib.fftwf_malloc(ffi.sizeof("fftwf_complex") * n)
+                local out_ptr = fftw_lib.fftwf_malloc(ffi.sizeof("fftwf_complex") * n)
+                local in_c = ffi.cast("fftwf_complex*", in_ptr)
+                local out_c = ffi.cast("fftwf_complex*", out_ptr)
+                local plan = fftw_lib.fftwf_plan_dft_1d(n, in_c, out_c, -1, 64)
+                phash_fftw_cache[n] = { plan = plan, in_c = in_c, out_c = out_c, in_ptr = in_ptr, out_ptr = out_ptr }
             end
+            ctx.fftw_plan = phash_fftw_cache[n].plan
+            ctx.fftw_in_c = phash_fftw_cache[n].in_c
+            ctx.fftw_out_c = phash_fftw_cache[n].out_c
+        end
+    end
 
-            if p1 < p2 then
-                if bit_status then
-                    row_byte = bit.bor(row_byte, bit.lshift(1, x))
-                else
-                    row_byte = row_byte + (2 ^ x)
-                end
+    local tmp_in, tmp_out = ffi.new("double[32]"), ffi.new("double[32]")
+    -- Rows
+    for y = 0, 31 do
+        local offset = y * 32
+        for x = 0, 31 do tmp_in[x] = data[offset + x] end
+        dct_1d_makhoul_ffi(tmp_in, 32, tmp_out, method, ctx)
+        for x = 0, 31 do data[offset + x] = tmp_out[x] end
+    end
+    -- Cols
+    for x = 0, 31 do
+        for y = 0, 31 do tmp_in[y] = data[y * 32 + x] end
+        dct_1d_makhoul_ffi(tmp_in, 32, tmp_out, method, ctx)
+        for y = 0, 31 do data[y * 32 + x] = tmp_out[y] end
+    end
+
+    local values = {}
+    local total_sum = 0
+    for y = 0, 7 do
+        for x = 0, 7 do
+            local val = data[y * 32 + x]
+            table.insert(values, val)
+            total_sum = total_sum + val
+        end
+    end
+    local mean_threshold = total_sum / 64
+
+    local hash = { 0, 0, 0, 0, 0, 0, 0, 0 }
+    for i = 0, 63 do
+        if values[i + 1] > mean_threshold then
+            local byte_idx = math.floor(i / 8) + 1
+            local bit_idx = i % 8
+            if bit_status then
+                hash[byte_idx] = bit.bor(hash[byte_idx], bit.lshift(1, 7 - bit_idx))
+            else
+                hash[byte_idx] = hash[byte_idx] + (2 ^ (7 - bit_idx))
             end
         end
-        hash[y + 1] = row_byte
+    end
+    return hash
+end
+
+local function compute_phash_32_lua(bytes, start_index)
+    local n = 32
+    local data = {}
+    local sum = 0
+    for i = 0, 1023 do
+        local val = string.byte(bytes, start_index + i + 1)
+        data[i + 1] = val
+        sum = sum + val
+    end
+    local mean = sum / 1024
+    for i = 1, 1024 do data[i] = data[i] - mean end
+
+    if not phash_ctx_cache_lua[n] then
+        phash_ctx_cache_lua[n] = {
+            real = {},
+            imag = {},
+            l_re = {},
+            l_im = {}
+        }
+    end
+    local ctx = phash_ctx_cache_lua[n]
+    init_lua_fft_cache(n)
+
+    local tmp_in, tmp_out = {}, {}
+    -- Rows
+    for y = 0, 31 do
+        local offset = y * 32
+        for x = 0, 31 do tmp_in[x + 1] = data[offset + x + 1] end
+        dct_1d_makhoul_lua(tmp_in, 32, tmp_out, ctx)
+        for x = 0, 31 do data[offset + x + 1] = tmp_out[x + 1] end
+    end
+    -- Cols
+    for x = 0, 31 do
+        for y = 0, 31 do tmp_in[y + 1] = data[y * 32 + x + 1] end
+        dct_1d_makhoul_lua(tmp_in, 32, tmp_out, ctx)
+        for y = 0, 31 do data[y * 32 + x + 1] = tmp_out[y + 1] end
+    end
+
+    local values = {}
+    local total_sum = 0
+    for y = 0, 7 do
+        for x = 0, 7 do
+            local val = data[y * 32 + x + 1]
+            table.insert(values, val)
+            total_sum = total_sum + val
+        end
+    end
+    local mean_threshold = total_sum / 64
+
+    local hash = { 0, 0, 0, 0, 0, 0, 0, 0 }
+    for i = 0, 63 do
+        if values[i + 1] > mean_threshold then
+            local byte_idx = math.floor(i / 8) + 1
+            local bit_idx = i % 8
+            if bit_status then
+                hash[byte_idx] = bit.bor(hash[byte_idx], bit.lshift(1, 7 - bit_idx))
+            else
+                hash[byte_idx] = hash[byte_idx] + (2 ^ (7 - bit_idx))
+            end
+        end
     end
     return hash
 end
@@ -290,7 +510,7 @@ local function scan_video_segment(start_time, duration, video_path, target_raw_b
     if duration <= 0 then return nil, nil end
 
     local vf = string.format("fps=1/%s,scale=%d:%d:flags=bilinear,format=gray",
-        options.video_interval, options.video_dhash_width, options.video_dhash_height)
+        options.video_interval, options.video_phash_size, options.video_phash_size)
 
     local args = {
         "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-hwaccel", "auto",
@@ -315,9 +535,9 @@ local function scan_video_segment(start_time, duration, video_path, target_raw_b
     local target_hash
     if ffi_status then
         local t_ptr = ffi.cast("uint8_t*", target_raw_bytes)
-        target_hash = compute_video_hash_from_chunk(t_ptr, 0, true)
+        target_hash = compute_phash_32_ffi(t_ptr, 0)
     else
-        target_hash = compute_video_hash_from_chunk(target_raw_bytes, 0, false)
+        target_hash = compute_phash_32_lua(target_raw_bytes, 0)
     end
 
     local stream_ptr
@@ -338,9 +558,9 @@ local function scan_video_segment(start_time, duration, video_path, target_raw_b
         local current_hash
 
         if ffi_status then
-            current_hash = compute_video_hash_from_chunk(stream_ptr, offset, true)
+            current_hash = compute_phash_32_ffi(stream_ptr, offset)
         else
-            current_hash = compute_video_hash_from_chunk(stream, offset, false)
+            current_hash = compute_phash_32_lua(stream, offset)
         end
 
         local dist = video_hamming_distance(target_hash, current_hash)
@@ -385,10 +605,10 @@ end
 -- ==========================================
 
 -- FFT Cache for standard Lua path
-local lua_fft_cache = nil
+local lua_fft_caches = {}
 
 local function init_lua_fft_cache(n)
-    if lua_fft_cache and lua_fft_cache.n == n then return end
+    if lua_fft_caches[n] then return end
 
     local m = math.log(n) / math.log(2)
     local rev = {}
@@ -421,7 +641,7 @@ local function init_lua_fft_cache(n)
         hann[i + 1] = 0.5 * (1 - math.cos(2 * math.pi * i / (n - 1)))
     end
 
-    lua_fft_cache = {
+    lua_fft_caches[n] = {
         rev = rev,
         twiddles_re = twiddles_re,
         twiddles_im = twiddles_im,
@@ -432,10 +652,10 @@ end
 
 -- Optimized Cooley-Tukey FFT for standard Lua (In-place)
 local function fft_lua_optimized(real, imag, n)
-    local cache = lua_fft_cache
+    local cache = lua_fft_caches[n]
     if not cache then
-        msg.error("FFT cache not initialized")
-        return
+        init_lua_fft_cache(n)
+        cache = lua_fft_caches[n]
     end
     local tw_re = cache.twiddles_re
     local tw_im = cache.twiddles_im
@@ -537,37 +757,35 @@ local function generate_hashes(spectrogram)
 end
 
 -- Precomputed twiddle tables for FFI FFT
-local twiddles_re, twiddles_im = nil, nil
-local twiddles_size = 0
+local twiddles_cache = {}
 
-local function ensure_twiddles(n)
-    if twiddles_size == n then return end
-    twiddles_re = ffi.new("double[?]", n)
-    twiddles_im = ffi.new("double[?]", n)
+local function get_twiddles(n)
+    if twiddles_cache[n] then
+        return twiddles_cache[n].re, twiddles_cache[n].im
+    end
+
+    local re = ffi.new("double[?]", n)
+    local im = ffi.new("double[?]", n)
     local pi = math.pi
     for i = 0, n - 1 do
         local angle = -2.0 * pi * i / n
-        twiddles_re[i] = math.cos(angle)
-        twiddles_im[i] = math.sin(angle)
+        re[i] = math.cos(angle)
+        im[i] = math.sin(angle)
     end
-    twiddles_size = n
+    twiddles_cache[n] = { re = re, im = im }
+    return re, im
 end
 
 -- Stockham Radix-4 Autosort FFT (FFI Optimized)
 -- Uses planar (split-complex) format.
 -- n must be a power of 2.
 local function fft_stockham(re, im, y_re, y_im, n)
-    ensure_twiddles(n)
+    local t_re, t_im = get_twiddles(n)
 
     local x_re, x_im = re, im
     local z_re, z_im = y_re, y_im
 
     local l = 1
-    local t_re, t_im = twiddles_re, twiddles_im
-    if not t_re or not t_im then
-        msg.error("FFT twiddles not initialized")
-        return
-    end
     local n_quarter = n / 4
     local n_half = n / 2
 
@@ -817,7 +1035,7 @@ local function process_audio_data(pcm_str)
         local num_samples = #samples
         init_lua_fft_cache(fft_size)
 
-        local cache = lua_fft_cache
+        local cache = lua_fft_caches[fft_size]
         if not cache then
             msg.error("FFT cache not initialized")
             return {}, 0
@@ -988,8 +1206,8 @@ local function save_intro()
     local fp_path_v = get_video_fingerprint_path()
     log_info("Saving video fingerprint to: " .. fp_path_v)
 
-    local vf = string.format("scale=%d:%d:flags=bilinear,format=gray", options.video_dhash_width,
-        options.video_dhash_height)
+    local vf = string.format("scale=%d:%d:flags=bilinear,format=gray", options.video_phash_size,
+        options.video_phash_size)
     local args_v = {
         "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-hwaccel", "auto",
         "-ss", tostring(time_pos), "-i", path, "-map", "v:0",
@@ -1124,7 +1342,8 @@ local function skip_intro_video()
             string.format(
                 "Scanning Video %d%%...",
                 math.floor(options.video_search_window / options.video_max_search_window * 100)
-            )
+            ),
+            120
         )
 
         local window_size = options.video_search_window
@@ -1157,7 +1376,8 @@ local function skip_intro_video()
                 string.format(
                     "Scanning Video %d%%...",
                     math.min(100, math.floor(window_size / options.video_max_search_window * 100))
-                )
+                ),
+                120
             )
 
             if scanned_start < old_start then
@@ -1237,7 +1457,7 @@ local function skip_intro_audio()
         log_info("Loaded " .. total_intro_hashes .. " audio hashes. Duration adj: " .. capture_duration)
 
         scanning = true
-        mp.osd_message("Scanning Audio...", 10)
+        mp.osd_message("Scanning Audio...", 120)
 
         local perf_stats = { ffmpeg = 0, lua = 0 }
         local scan_start_time = mp.get_time()
@@ -1406,7 +1626,7 @@ local function skip_intro_audio()
                 last_processed_time = target_time
                 target_time = last_processed_time + segment_dur
                 processed_count = processed_count + 1
-                mp.osd_message(string.format("Scanning Audio %d%%...", math.floor(target_time / max_scan_time * 100)))
+                mp.osd_message(string.format("Scanning Audio %d%%...", math.floor(target_time / max_scan_time * 100)), 120)
             end
 
             if not stop_flag and (next_scan_time < max_scan_time or active_workers > 0) then

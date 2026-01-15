@@ -278,6 +278,8 @@ You can use the provided VS Code DevContainer to test the script in a pre-config
 4. To test: `xvfb-run mpv --script=main.lua videos`
    - *Note: Place your test videos in the `videos/` folder in the project root to have them available inside the container.*
 
-# License
+---
 
-MIT
+<a href="https://www.buymeacoffee.com/sanghan">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" width="200" height="50" alt="Buy Me A Coffee">
+</a>

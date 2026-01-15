@@ -283,51 +283,40 @@ local function dct_1d_makhoul_ffi(input_ptr, n, output_ptr, method, ctx)
     end
 end
 
-local function dct_1d_makhoul_lua(input, n, output, ctx)
-    local real = ctx.real
-    local imag = ctx.imag
-
-    -- 1. Construct v[n] (Makhoul's reordering)
-    local half_n = math.floor(n / 2)
-    for i = 0, half_n - 1 do
-        real[i + 1] = input[2 * i + 1]
-    end
-    for i = 0, half_n - 1 do
-        real[half_n + i + 1] = input[n - 1 - 2 * i + 1]
-    end
-    for i = 1, n do imag[i] = 0.0 end
-
-    -- 2. Compute FFT
-    local l_re, l_im = ctx.l_re, ctx.l_im
-    local rev = lua_fft_caches[n].rev
-    for i = 0, n - 1 do
-        l_re[rev[i + 1]] = real[i + 1]
-        l_im[rev[i + 1]] = imag[i + 1]
-    end
-    fft_lua_optimized(l_re, l_im, n)
-    for i = 1, n do
-        real[i], imag[i] = l_re[i], l_im[i]
-    end
-
-    -- 3. Phase correction & Orthogonal Scaling
-    local pi_over_2n = math.pi / (2 * n)
-    local scale_ac = math.sqrt(2.0 / n)
-    local scale_dc = math.sqrt(1.0 / n)
-
-    for k = 0, n - 1 do
-        local angle = k * pi_over_2n
-        local val = 2.0 * (real[k + 1] * math.cos(angle) + imag[k + 1] * math.sin(angle))
-        if k == 0 then
-            output[k + 1] = val * scale_dc
-        else
-            output[k + 1] = val * scale_ac
-        end
-    end
-end
 
 local phash_fftw_cache = {}
 local phash_ctx_cache_ffi = {}
-local phash_ctx_cache_lua = {}
+
+-- Optimized Pure Lua Context
+local phash_lua_context = {
+    dct_matrix = nil,
+    row_temp = {},
+    data = {},
+    values_flat = {}
+}
+
+local function init_phash_lua_dct_matrix()
+    if phash_lua_context.dct_matrix then return end
+    local matrix = {}
+    local N = 32
+    local scale_dc = math.sqrt(1.0 / N)
+    local scale_ac = math.sqrt(2.0 / N)
+    for k = 0, 7 do
+        matrix[k + 1] = {}
+        local scale = (k == 0) and scale_dc or scale_ac
+        for n = 0, N - 1 do
+            local angle = (math.pi / N) * (n + 0.5) * k
+            matrix[k + 1][n + 1] = scale * math.cos(angle)
+        end
+    end
+    phash_lua_context.dct_matrix = matrix
+    for x = 1, 8 do
+        phash_lua_context.row_temp[x] = {}
+        for y = 1, 32 do phash_lua_context.row_temp[x][y] = 0 end
+    end
+    for i = 1, 1024 do phash_lua_context.data[i] = 0 end
+    for i = 1, 64 do phash_lua_context.values_flat[i] = 0 end
+end
 
 local function compute_phash_32_ffi(bytes_ptr, start_index)
     local n = 32
@@ -417,8 +406,13 @@ local function compute_phash_32_ffi(bytes_ptr, start_index)
 end
 
 local function compute_phash_32_lua(bytes, start_index)
-    local n = 32
-    local data = {}
+    init_phash_lua_dct_matrix()
+    local ctx = phash_lua_context
+    local dct_mat = ctx.dct_matrix
+    local row_temp = ctx.row_temp
+    local data = ctx.data
+    local values_flat = ctx.values_flat
+
     local sum = 0
     for i = 0, 1023 do
         local val = string.byte(bytes, start_index + i + 1)
@@ -426,48 +420,39 @@ local function compute_phash_32_lua(bytes, start_index)
         sum = sum + val
     end
     local mean = sum / 1024
-    for i = 1, 1024 do data[i] = data[i] - mean end
 
-    if not phash_ctx_cache_lua[n] then
-        phash_ctx_cache_lua[n] = {
-            real = {},
-            imag = {},
-            l_re = {},
-            l_im = {}
-        }
-    end
-    local ctx = phash_ctx_cache_lua[n]
-    init_lua_fft_cache(n)
-
-    local tmp_in, tmp_out = {}, {}
-    -- Rows
     for y = 0, 31 do
         local offset = y * 32
-        for x = 0, 31 do tmp_in[x + 1] = data[offset + x + 1] end
-        dct_1d_makhoul_lua(tmp_in, 32, tmp_out, ctx)
-        for x = 0, 31 do data[offset + x + 1] = tmp_out[x + 1] end
-    end
-    -- Cols
-    for x = 0, 31 do
-        for y = 0, 31 do tmp_in[y + 1] = data[y * 32 + x + 1] end
-        dct_1d_makhoul_lua(tmp_in, 32, tmp_out, ctx)
-        for y = 0, 31 do data[y * 32 + x + 1] = tmp_out[y + 1] end
-    end
-
-    local values = {}
-    local total_sum = 0
-    for y = 0, 7 do
-        for x = 0, 7 do
-            local val = data[y * 32 + x + 1]
-            table.insert(values, val)
-            total_sum = total_sum + val
+        for k = 1, 8 do
+            local row_sum = 0
+            local mat_row = dct_mat[k]
+            for n = 1, 32 do
+                row_sum = row_sum + (data[offset + n] - mean) * mat_row[n]
+            end
+            row_temp[k][y + 1] = row_sum
         end
     end
-    local mean_threshold = total_sum / 64
 
+    local total_sum = 0
+    local values_idx = 1
+    for k = 1, 8 do
+        local mat_row = dct_mat[k]
+        for x = 1, 8 do
+            local col_data = row_temp[x]
+            local col_sum = 0
+            for n = 1, 32 do
+                col_sum = col_sum + col_data[n] * mat_row[n]
+            end
+            values_flat[values_idx] = col_sum
+            total_sum = total_sum + col_sum
+            values_idx = values_idx + 1
+        end
+    end
+
+    local mean_threshold = total_sum / 64
     local hash = { 0, 0, 0, 0, 0, 0, 0, 0 }
     for i = 0, 63 do
-        if values[i + 1] > mean_threshold then
+        if values_flat[i + 1] > mean_threshold then
             local byte_idx = math.floor(i / 8) + 1
             local bit_idx = i % 8
             if bit_status then

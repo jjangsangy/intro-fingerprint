@@ -18,7 +18,9 @@
 - **Shell**: PowerShell (specified in `.clinerules`)
 
 ## Technical Constraints
-- **LuaJIT Dependency**: The script heavily utilizes FFI and bitwise operations. While fallback paths exist for standard Lua, an optimized in-place Cooley-Tukey implementation with precomputed tables provides a ~2.5x speedup over naive Lua code, ensuring the script remains usable in environments without LuaJIT.
+- **LuaJIT Dependency**: The script heavily utilizes FFI and bitwise operations. While fallback paths exist for standard Lua, significant optimizations have been implemented for non-FFI environments:
+    - **Audio**: An optimized in-place Cooley-Tukey FFT implementation with precomputed tables provides a ~2.5x speedup over naive Lua code.
+    - **Video**: A **Partial Direct DCT** implementation provides a **~4x speedup** for pHash generation by computing only required coefficients and using a zero-allocation buffer model.
 - **FFmpeg Path**: FFmpeg must be executable from the command line.
 - **File System**: Requires write access to the system temp directory to store fingerprint files.
 

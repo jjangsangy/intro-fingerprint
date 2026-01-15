@@ -8,9 +8,11 @@ The script is a monolithic Lua script (`main.lua`) that integrates with MPV. It 
 ### 1. Video Fingerprinting: Perceptual Hash (pHash)
 - **Extraction**: Resizes frame to 32x32 grayscale using FFmpeg `vf=scale=32:32,format=gray`.
 - **Hashing**: 
-    - Computes the Discrete Cosine Transform (DCT) of the 32x32 image (rows and then columns).
-    - Extracts the 8x8 low-frequency coefficients (excluding the DC component).
-    - Compares each coefficient to the mean of all 64 coefficients to generate bits.
+    - **DCT-II**: Computes the Discrete Cosine Transform of the 32x32 image.
+        - **Standard Logic**: Uses Makhoul's method (FFT-based DCT) via FFI or FFTW3.
+        - **Optimized Lua Fallback**: Uses a **Partial Direct DCT** (matrix multiplication) for the pure Lua path. This computes only the first 8 coefficients for each row and column, avoiding unnecessary calculations and complex-number overhead.
+    - **Feature Extraction**: Extracts the 8x8 low-frequency coefficients (excluding the DC component).
+    - **Thresholding**: Compares each coefficient to the mean of all 64 coefficients to generate bits.
 - **Result**: A 64-bit integer (8 bytes).
 - **Matching**: Hamming distance. A distance $\le 12$ (configurable) is considered a match.
 - **Search Strategy**: Sliding window centered on the original timestamp, expanding outwards to balance speed and accuracy.

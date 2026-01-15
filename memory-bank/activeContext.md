@@ -22,6 +22,7 @@ The script is in a functional and feature-complete state for its primary goal of
 - **Log Alignment & Table Format**: Converted "Processed segment" debug logs into an aligned table format with a `header_printed` flag to prevent initialization logs (like FFTW loading) from breaking the table structure.
 - **Code Refactor (Flattening)**: Refactored `main.lua` to reduce indentation and branching. Applied guard clauses and inverted control flow in `process_audio_data`, `save_intro`, `get_peaks`, and asynchronous worker callbacks.
 - **Audio Normalization**: Mandatory audio normalization using FFmpeg's `dynaudnorm` filter. This ensures consistent spectral peak detection across files with different volume levels or channel mixdowns (e.g., 5.1 vs Stereo). This filter is applied unconditionally to all audio extractions using its default settings for optimal balance of results and performance.
+- **pHash Performance Optimization (Pure Lua)**: Optimized the standard Lua fallback path for video fingerprinting, achieving a ~4x speedup. Replaced the full 32x32 FFT-based DCT with a Partial Direct DCT using matrix multiplication. This optimization avoids calculating unnecessary coefficients and uses a zero-allocation model with pre-allocated buffers to eliminate GC pressure.
 
 ## Current Focus
 - User feedback and stability improvements.

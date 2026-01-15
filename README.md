@@ -9,7 +9,7 @@ When you mark an intro in one episode, the script can search for that same intro
 # Features
 
 - **Audio Fingerprinting**: Uses Constellation Hashing to find identical audio patterns, robust to noise and distortion. **(Recommended/Default)**
-- **Video Fingerprinting**: Uses Gradient Hashing (dHash) to find visually similar intros.
+- **Video Fingerprinting**: Uses Perceptual Hashing (pHash) to find visually similar intros.
 - **High Performance**: 
   - Uses **LuaJIT FFI** for zero-allocation data processing to handle large audio/video datasets efficiently.
   - Optimized **Pure-Lua Fallback** for environments without LuaJIT (e.g., some Linux builds), achieving ~2.5x faster FFTs than standard implementations.
@@ -102,6 +102,7 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 ## Video Options
 | Option                    | Default | Description                                                       |
 | :------------------------ | :------ | :---------------------------------------------------------------- |
+| `video_phash_size`        | `32`    | pHash size (32x32 DCT -> 8x8 hash).                               |
 | `video_threshold`         | `12`    | Tolerance for Hamming Distance (0-64). Lower is stricter.         |
 | `video_interval`          | `0.20`  | Time interval (seconds) between checked frames during video scan. |
 | `video_search_window`     | `10`    | Initial seconds before/after saved timestamp to search.           |
@@ -139,12 +140,12 @@ The script uses two primary methods for fingerprinting:
     - **Inverted Index**: Uses an $O(1)$ hash-map for near-instant lookup of fingerprints during the scan.
     - **Optimal Stopping**: Scans terminate immediately once a high-confidence match is confirmed and the signal gradient drops.
 
-## 2. Video Fingerprinting (Gradient Hash / dHash)
+## 2. Video Fingerprinting (Perceptual Hash / pHash)
 
-![Gradient Hashing](assets/gradient-hashing.svg)
+![Perceptual Hashing](assets/gradient-hashing.svg)
 
-- **Algorithm**: Resizes frames to 9x8 grayscale and compares adjacent pixels: if `P(x+1) > P(x)`, the bit is 1, else 0. This generates a 64-bit hash (8 bytes).
-- **Matching**: Uses Hamming Distance (count of differing bits). It is robust against color changes and small aspect ratio variations.
+- **Algorithm**: Resizes frames to 32x32 grayscale and computes the Discrete Cosine Transform (DCT) of the rows and columns. A 64-bit hash (8 bytes) is generated from the low-frequency 8x8 coefficients.
+- **Matching**: Uses Hamming Distance (count of differing bits). It is robust against color changes, small aspect ratio variations, and high-frequency noise.
 - **Search Strategy**: The search starts around the timestamp of the saved fingerprint and expands outward.
 - **Optimization**: FFmpeg video decoding is the most expensive part of the pipeline. By assuming the intro is at a similar location (common in episodic content), we avoid decoding the entire stream, resulting in much faster scans.
 

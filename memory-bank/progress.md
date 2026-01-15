@@ -10,7 +10,7 @@
 - [x] **Audio Normalization**: Added volume-invariant fingerprinting using FFmpeg's `dynaudnorm` (default settings) to fix inconsistent match ratios across different file encodes while maintaining performance.
 - [x] **Optimal Stopping**: Gradient-based early termination for efficient scanning.
 - [x] **Aligned Debug Tables**: Converted per-segment scanning logs into an aligned table format for better readability.
-- [x] **Video Fingerprinting**: dHash implementation for frame matching.
+- [x] **Video Fingerprinting**: pHash implementation for frame matching.
 - [x] **Audio Fingerprinting**: Constellation hashing with FFT-based peak detection.
 - [x] **Async Processing**: Use of MPV coroutines and async subprocesses.
 - [x] **Configurable Options**: Exposure of thresholds, windows, and processing flags via MPV options.

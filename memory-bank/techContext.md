@@ -23,7 +23,7 @@
 - **File System**: Requires write access to the system temp directory to store fingerprint files.
 
 ## Optimization Decisions
-- **dHash (9x8)**: Chosen for its speed and invariance to brightness/contrast changes.
+- **pHash (32x32 -> 8x8 DCT)**: Chosen for its superior robustness and invariance to brightness/contrast changes.
 - **Audio Normalization**: Uses mandatory `dynaudnorm` (default settings) to ensure spectral consistency regardless of source volume.
 - **Spectrogram Parameters**:
     - Sample Rate: 11025 Hz (sufficient for frequency peaks while minimizing data size).

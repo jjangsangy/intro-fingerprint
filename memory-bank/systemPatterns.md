@@ -5,9 +5,12 @@ The script is a monolithic Lua script (`main.lua`) that integrates with MPV. It 
 
 ## Key Algorithms
 
-### 1. Video Fingerprinting: Gradient Hash (dHash)
-- **Extraction**: Resizes frame to 9x8 grayscale using FFmpeg `vf=scale=9:8,format=gray`.
-- **Hashing**: Compares adjacent pixels (9 horizontal pixels lead to 8 comparison bits per row).
+### 1. Video Fingerprinting: Perceptual Hash (pHash)
+- **Extraction**: Resizes frame to 32x32 grayscale using FFmpeg `vf=scale=32:32,format=gray`.
+- **Hashing**: 
+    - Computes the Discrete Cosine Transform (DCT) of the 32x32 image (rows and then columns).
+    - Extracts the 8x8 low-frequency coefficients (excluding the DC component).
+    - Compares each coefficient to the mean of all 64 coefficients to generate bits.
 - **Result**: A 64-bit integer (8 bytes).
 - **Matching**: Hamming distance. A distance $\le 12$ (configurable) is considered a match.
 - **Search Strategy**: Sliding window centered on the original timestamp, expanding outwards to balance speed and accuracy.

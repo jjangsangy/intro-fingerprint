@@ -1488,6 +1488,23 @@ local function skip_intro_audio()
         -- Padding: enough to cover audio_target_t_max plus FFT window overhead.
         local padding = math.ceil(options.audio_target_t_max * options.audio_hop_size / options.audio_sample_rate) + 1.0
 
+        local function process_hash_match(h, t, target_time, local_histogram)
+            local rel_time = t * factor
+            -- Filter: Ignore hashes that belong to the next segment's padding overlap
+            if rel_time >= segment_dur then return end
+
+            local saved = saved_hashes[h]
+            if not saved then return end
+
+            local track_time = target_time + rel_time
+            for _, fp_time in ipairs(saved) do
+                local offset = track_time - fp_time
+                local bin = math.floor(offset / time_bin_width + 0.5)
+                global_offset_histogram[bin] = (global_offset_histogram[bin] or 0) + 1
+                local_histogram[bin] = (local_histogram[bin] or 0) + 1
+            end
+        end
+
         -- Concurrency State
         local active_workers = 0
         local processed_count = 0
@@ -1555,40 +1572,11 @@ local function skip_intro_audio()
                 if ffi_status and type(chunk_hashes) == "cdata" then
                     for i = 0, ch_count - 1 do
                         local ch = chunk_hashes[i]
-                        local rel_time = ch.t * factor
-                        -- Filter: Ignore hashes that belong to the next segment's padding overlap
-                        if rel_time < segment_dur then
-                            local track_time = target_time + rel_time
-                            local saved = saved_hashes[ch.h]
-                            if saved then
-                                for _, fp_time in ipairs(saved) do
-                                    local offset = track_time - fp_time
-                                    local bin = math.floor(offset / time_bin_width + 0.5)
-                                    if bin and global_offset_histogram and local_histogram then
-                                        global_offset_histogram[bin] = (global_offset_histogram[bin] or 0) + 1
-                                        local_histogram[bin] = (local_histogram[bin] or 0) + 1
-                                    end
-                                end
-                            end
-                        end
+                        process_hash_match(ch.h, ch.t, target_time, local_histogram)
                     end
                 else
                     for _, ch in ipairs(chunk_hashes) do
-                        local rel_time = ch.t * factor
-                        if rel_time < segment_dur then
-                            local track_time = target_time + rel_time
-                            local saved = saved_hashes[ch.h]
-                            if saved then
-                                for _, fp_time in ipairs(saved) do
-                                    local offset = track_time - fp_time
-                                    local bin = math.floor(offset / time_bin_width + 0.5)
-                                    if bin and global_offset_histogram and local_histogram then
-                                        global_offset_histogram[bin] = (global_offset_histogram[bin] or 0) + 1
-                                        local_histogram[bin] = (local_histogram[bin] or 0) + 1
-                                    end
-                                end
-                            end
-                        end
+                        process_hash_match(ch.h, ch.t, target_time, local_histogram)
                     end
                 end
 

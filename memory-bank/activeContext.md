@@ -4,6 +4,7 @@
 The script is in a functional and feature-complete state for its primary goal of skipping intros using video or audio fingerprinting. It now includes significant performance optimizations for standard Lua environments.
 
 ## Recent Changes
+- **FFTW Enabled by Default**: Set `audio_use_fftw = "yes"` as the default configuration. Updated `main.lua`, `intro-fingerprint.conf`, and `README.md` to reflect this change. Added a detailed performance explanation in the README regarding FFTW's use of SIMD instructions (SSE/AVX) for hardware-accelerated Fourier transforms.
 - **LuaJIT Troubleshooting Docs**: Added comprehensive instructions to the `README.md` for verifying LuaJIT support and obtaining optimized MPV builds for Windows, macOS, and Linux without compiling from source.
 - **FFT Performance Optimization (Non-LuaJIT)**: Optimized the standard Lua fallback path for audio fingerprinting, achieving a ~2.5x speedup. Changes include zero-allocation processing with reusable buffers, precomputed trigonometric and bit-reversal lookup tables, and an optimized in-place Cooley-Tukey algorithm.
 - **DevContainer Integration**: Added a VS Code DevContainer (Ubuntu 24.04) with pre-installed `mpv`, `ffmpeg`, and automated environment setup (symlinking scripts and config). Fixed hardware-related errors in the container by adding software rendering libraries (`mesa-utils`, `libgl1`) and configuring `mpv.conf` to use headless-friendly defaults (`ao=null`).
@@ -28,8 +29,8 @@ The script is in a functional and feature-complete state for its primary goal of
 
 ## Active Decisions
 - **FFT Implementation**: Supports three tiers of performance:
-    1.  **FFTW3 (FFI)**: Highest performance using the external C library.
-    2.  **Stockham Radix-4 & Mixed-Radix (FFI)**: High performance fallback for LuaJIT when FFTW3 is missing.
+    1.  **FFTW3 (FFI)**: Highest performance using the external C library. **Enabled by default.**
+    2.  **Stockham Radix-4 & Mixed-Radix (FFI)**: High performance fallback for LuaJIT when FFTW3 is missing or disabled.
     3.  **Optimized Cooley-Tukey (Standard Lua)**: Optimized fallback for builds without LuaJIT, using precomputed tables and zero-allocation buffers.
 - **Search Logic**: Video uses a centered expanding window; Audio uses **concurrent linear scan** with chunked segments and ordered result processing.
 - **Normalization**: The script applies the `dynaudnorm` filter unconditionally to both the reference capture and the scan workers using default settings. This ensures consistent spectral peak detection across files with different volume levels or channel mixdowns, maintaining stable match ratios.

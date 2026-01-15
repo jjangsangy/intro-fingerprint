@@ -4,7 +4,7 @@ local options = {
     debug = "no",
 
     -- Audio: Configuration
-    audio_use_fftw = "no",           -- use libfftw for FFT processing
+    audio_use_fftw = "yes",          -- use libfftw for FFT processing
     audio_sample_rate = 11025,
     audio_fft_size = 2048,
     audio_hop_size = 1024,

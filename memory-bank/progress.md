@@ -16,7 +16,7 @@
 - [x] **Configurable Options**: Exposure of thresholds, windows, and processing flags via MPV options.
 - [x] **FFI Optimization**: Zero-allocation (or low-allocation) paths for data-intensive operations.
 - [x] **Standard Lua Optimization**: Achieved ~2.5x speedup for non-LuaJIT environments via precomputed tables and optimized in-place FFT logic.
-- [x] **FFTW Integration**: Ability to use `libfftw3` for faster FFTs.
+- [x] **FFTW Integration**: Enabled `libfftw3` by default for high-performance, SIMD-accelerated FFTs.
 - [x] **Dockerized Build System**: Multi-stage Dockerfile for `libfftw3f` (Linux, Windows, and macOS M-series cross-compilation from source). Optimized Linux build using `manylinux2014` for broad compatibility.
 - [x] **DevContainer**: VS Code DevContainer for Ubuntu 24.04 with a custom-built `mpv-luajit` (v0.38.0) environment. Supports both X11 and Wayland (`wlshm`) video outputs for compatibility with WSLg.
 - [x] **Code Quality**: Refactored monolithic script to reduce branching and indentation depth using guard clauses.

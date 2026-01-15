@@ -17,8 +17,9 @@ The script is a monolithic Lua script (`main.lua`) that integrates with MPV. It 
 - **Normalization**: Applies mandatory `dynaudnorm` filter (default settings) to the audio stream. This ensures consistent spectral peaks regardless of source volume or original mixing, making the algorithm volume-invariant with minimal performance overhead.
 - **Processing**:
     - FFT:
-        - **LuaJIT FFI**: Uses FFTW3 (if available) or an FFI-optimized Stockham Radix-4 & Mixed-Radix implementation.
-        - **Standard Lua**: Uses an optimized in-place Cooley-Tukey implementation with precomputed trig tables and bit-reversal caches to minimize GC overhead.
+        - **FFTW3 (Primary)**: Enabled by default. Uses the external C library via LuaJIT FFI for maximum performance (SIMD/AVX/SSE).
+        - **LuaJIT FFI (Fallback)**: FFI-optimized Stockham Radix-4 & Mixed-Radix implementation used if FFTW3 is missing or disabled.
+        - **Standard Lua (Fallback)**: Uses an optimized in-place Cooley-Tukey implementation with precomputed trig tables and bit-reversal caches to minimize GC overhead.
     - Peak detection identifies the most prominent frequencies (top 5 per frame).
 - **Hashing**: Pairs of peaks $[f1, f2, \Delta t]$ are combined into a unique 32-bit hash.
 - **Inverted Index**: Saved fingerprints are indexed by hash for $O(1)$ lookup during scans.

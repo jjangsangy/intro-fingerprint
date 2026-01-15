@@ -13,7 +13,7 @@ When you mark an intro in one episode, the script can search for that same intro
 - **High Performance**: 
   - Uses **LuaJIT FFI** for zero-allocation data processing to handle large audio/video datasets efficiently.
   - Optimized **Pure-Lua Fallback** for environments without LuaJIT (e.g., some Linux builds), achieving ~2.5x faster FFTs than standard implementations.
-  - Optional **libfftw3** support for accelerated FFT calculations.
+  - Accelerated FFT calculations using **libfftw3** (enabled by default).
 - **Async Execution**: Scans run in the background using mpv coroutines and async subprocesses, ensuring the player remains responsive.
 - **Cross-Platform**: Supports Windows, Linux, and macOS (with appropriate dependencies).
 
@@ -31,9 +31,6 @@ When you mark an intro in one episode, the script can search for that same intro
 2.  **Extract** the contents directly into your mpv configuration directory:
     - **Windows**: `%APPDATA%\Roaming\mpv\`
     - **Linux/macOS**: `~/.config/mpv/`
-
-### (Optional) Enable FFTW
-To enable the optimized FFTW paths, edit `script-opts/intro-fingerprint.conf` and set `audio_use_fftw=yes`.
 
 # Usage
 
@@ -89,7 +86,7 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 ## Audio Options
 | Option                       | Default | Description                                                                 |
 | :--------------------------- | :------ | :-------------------------------------------------------------------------- |
-| `audio_use_fftw`             | `no`    | Use `libfftw3` for faster audio FFT processing.                             |
+| `audio_use_fftw`             | `yes`   | Use `libfftw3` for faster audio FFT processing.                             |
 | `audio_threshold`            | `10`    | Minimum magnitude for frequency peaks and minimum matches for a valid skip. |
 | `audio_min_match_ratio`      | `0.30`  | Minimum ratio of matching hashes required (0.0 - 1.0).                      |
 | `audio_concurrency`          | `4`     | Number of parallel FFmpeg workers for audio scanning.                       |
@@ -160,15 +157,20 @@ The script is heavily optimized for LuaJIT and high-performance processing.
 - **Flattened Data Structures**: 2D data (like spectrogram peaks) is flattened into 1D C-arrays to ensure memory contiguity and cache friendliness.
 - **Direct Memory Access**: Raw audio and video buffers from FFmpeg are cast directly to C-structs using FFI, avoiding any copying or string manipulation in Lua.
 
-## 2. Optimized Audio FFT (Custom Implementation)
+## 2. Audio FFT Processing
+
+### Primary: FFTW3 (Enabled by Default)
+The script uses **libfftw3** (via LuaJIT FFI) for the fastest possible Fourier transforms. FFTW is the industry standard for high-performance FFTs, utilizing SIMD instructions (SSE/AVX/NEON) and runtime profiling to optimize calculations for your specific hardware.
+
+### Fallback: Optimized Internal Implementation
 When `libfftw3` is unavailable, the script falls back to highly optimized internal FFT implementations:
 
-### For LuaJIT (FFI-Optimized)
+#### For LuaJIT (FFI-Optimized)
 - **Stockham Auto-Sort Algorithm**: Avoids the expensive bit-reversal permutation step, maximizing FFI performance.
 - **Radix-4 & Mixed-Radix**: Processes 4 points at a time to reduce complex multiplications, with Radix-2 fallback passes to handle non-power-of-4 sizes (e.g., 2048).
 - **Cache-Aware Loop Tiling**: Ensures **unit-stride memory access** for maximum memory throughput.
 
-### For Standard Lua (Interpreter-Optimized)
+#### For Standard Lua (Interpreter-Optimized)
 - **Zero-Allocation Processing**: Replaces table churn with reusable buffers to minimize Garbage Collection overhead.
 - **Fused Scrambling**: Combines Hann windowing and bit-reversal into a single pass.
 - **Precomputed Lookups**: Uses pre-calculated trig tables and bit-reversal maps to avoid redundant math inside hot loops.

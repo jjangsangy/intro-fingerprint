@@ -13,7 +13,6 @@ When you mark an intro in one episode, the script can search for that same intro
 - **High Performance**: 
   - Uses **LuaJIT FFI** for zero-allocation data processing to handle large audio/video datasets efficiently.
   - Optimized **Pure-Lua Fallback** for environments without LuaJIT (e.g., some Linux builds), achieving ~2.5x faster FFTs than standard implementations.
-  - Accelerated FFT calculations using **PocketFFT** (enabled by default).
 - **Async Execution**: Scans run in the background using mpv coroutines and async subprocesses, ensuring the player remains responsive.
 - **Cross-Platform**: Supports Windows, Linux, and macOS (with appropriate dependencies).
 
@@ -22,9 +21,6 @@ When you mark an intro in one episode, the script can search for that same intro
 - **ffmpeg** (required) must be in your system `PATH`. ([Install Instructions](#install-ffmpeg))
 - **LuaJIT** (optional) is highly recommended. The script uses FFI C-arrays for audio processing to avoid massive Garbage Collection overhead (standard in mpv). ([Install Instructions](#verifying-luajit-support))
 - **'bit' library** (optional): Standard in LuaJIT. Used for faster processing if available.
-- **libpocketfft** (optional): Provides faster FFT processing for **audio scans only** 
-  - Windows, Linux support and macOS ARM64 support.
-  - Pre-built binaries provided in `libs/`, or [build yourself](#building-pocketfft-libraries).
 
 # Installation
 1.  **Download** the ([Latest Release](https://github.com/jjangsangy/intro-fingerprint/releases/latest/download/intro-fingerprint.zip))
@@ -86,7 +82,6 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 ## Audio Options
 | Option                       | Default | Description                                                                 |
 | :--------------------------- | :------ | :-------------------------------------------------------------------------- |
-| `audio_use_pocketfft`        | `yes`   | Use `libpocketfft` for faster audio FFT processing.                        |
 | `audio_threshold`            | `10`    | Minimum magnitude for frequency peaks and minimum matches for a valid skip. |
 | `audio_min_match_ratio`      | `0.30`  | Minimum ratio of matching hashes required (0.0 - 1.0).                      |
 | `audio_concurrency`          | `4`     | Number of parallel FFmpeg workers for audio scanning.                       |
@@ -160,13 +155,9 @@ The script is heavily optimized for LuaJIT and high-performance processing.
 
 ## 2. Audio FFT Processing
 
-### Primary: PocketFFT (Enabled by Default)
-The script uses **libpocketfft** (via LuaJIT FFI) for the fastest possible Fourier transforms. PocketFFT is a lightweight, header-only C++ library that provides high-performance FFTs with SIMD acceleration (SSE/AVX/NEON).
+The script uses highly optimized internal FFT implementations:
 
-### Fallback: Optimized Internal Implementation
-When `libpocketfft` is unavailable, the script falls back to highly optimized internal FFT implementations:
-
-#### For LuaJIT (FFI-Optimized)
+### For LuaJIT (FFI-Optimized)
 - **Stockham Auto-Sort Algorithm**: Avoids the expensive bit-reversal permutation step, maximizing FFI performance.
 - **Radix-4 & Mixed-Radix**: Processes 4 points at a time to reduce complex multiplications, with Radix-2 fallback passes to handle non-power-of-4 sizes (e.g., 2048).
 - **Cache-Aware Loop Tiling**: Ensures **unit-stride memory access** for maximum memory throughput.
@@ -232,7 +223,6 @@ sudo pacman -S ffmpeg
 - **No match found**: 
   - For Video: Try increasing `video_threshold` or ensure the intro is visually similar.
   - For Audio: Ensure the intro has consistent music/audio.
-- **Slow Scans**: Enable `audio_use_pocketfft` and ensure you are using LuaJIT. See [Verifying LuaJIT Support](#verifying-luajit-support) below.
 
 ## Verifying LuaJIT Support
 
@@ -259,19 +249,6 @@ If the command returns a line containing `luajit`, you are good to go. If it ret
 -   **Linux**:
     -   Some distribution packages (Ubuntu/Debian) ship with standard Lua instead of LuaJIT.
     -   **Recommended**: Install via **Flatpak** from [Flathub](https://flathub.org/apps/io.mpv.Mpv), which includes LuaJIT.
-
-# Building PocketFFT Libraries
-
-The project includes a `Dockerfile` for building the required shared libraries:
-- `libpocketfft.so` (Linux)
-- `libpocketfft.dll` (Windows)
-- `libpocketfft.dylib` (macOS ARM64)
-
-```bash
-docker build --output type=local,dest=. .
-```
-
-This will populate the `libs/` directory with the appropriate binaries.
 
 # Development & Testing
 You can use the provided VS Code DevContainer to test the script in a pre-configured Linux environment:

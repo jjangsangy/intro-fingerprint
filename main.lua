@@ -4,7 +4,6 @@ local options = {
     debug = "no",
 
     -- Audio: Configuration
-    audio_use_pocketfft = "yes",     -- use libpocketfft for FFT processing
     audio_sample_rate = 11025,
     audio_fft_size = 2048,
     audio_hop_size = 1024,
@@ -137,74 +136,7 @@ if ffi_status then
         typedef struct { double r; double i; } complex_t;
         typedef int16_t int16;
         typedef struct { uint32_t h; uint32_t t; } hash_entry;
-
-        typedef float pocketfft_complex[2];
-        typedef struct pocketfft_plan_s *pocketfft_plan;
-        pocketfft_plan pocketfft_plan_dft_1d(int n, pocketfft_complex *in, pocketfft_complex *out, int sign, unsigned flags);
-        void pocketfft_execute(const pocketfft_plan plan);
-        void pocketfft_destroy_plan(pocketfft_plan plan);
-        void *pocketfft_malloc(size_t n);
-        void pocketfft_free(void *p);
     ]]
-end
-
-local pocketfft_lib = nil
-local pocketfft_path_tried = false
-
-local function get_script_dir()
-    local dir = mp.get_script_directory()
-    if dir then
-        return utils.join_path(dir, "")
-    end
-
-    -- Fallback for older mpv versions or unusual environments
-    local source = debug.getinfo(1).source
-    if source and source:sub(1, 1) == "@" then
-        return source:sub(2):match("(.*[/\\])") or ""
-    end
-    return ""
-end
-
-local function load_pocketfft_library()
-    if pocketfft_lib then return pocketfft_lib end
-
-    local libs = {}
-    if ffi.os == "Windows" then
-        libs = { "libpocketfft.dll", "libpocketfft" }
-    elseif ffi.os == "Linux" then
-        libs = { "libpocketfft.so", "pocketfft" }
-    elseif ffi.os == "OSX" then
-        libs = { "libpocketfft.dylib", "pocketfft" }
-    end
-
-    local script_dir = get_script_dir()
-    local search_paths = {}
-
-    -- 1. Try Local 'libs' directory
-    if script_dir ~= "" then
-        local local_libs_dir = utils.join_path(script_dir, "libs")
-        for _, lib in ipairs(libs) do
-            if lib:match("%.") then -- Only check files with extensions locally
-                table.insert(search_paths, utils.join_path(local_libs_dir, lib))
-            end
-        end
-    end
-
-    -- 2. Try System paths (ffi.load handles this with just the name)
-    for _, lib in ipairs(libs) do
-        table.insert(search_paths, lib)
-    end
-
-    for _, path in ipairs(search_paths) do
-        log_info("Attempting to load PocketFFT from: " .. path)
-        local status, lib = pcall(ffi.load, path)
-        if status then
-            msg.info("Successfully loaded PocketFFT from: " .. path)
-            return lib
-        end
-    end
-    msg.warn("Could not load PocketFFT")
-    return nil
 end
 
 local function get_temp_dir()
@@ -484,17 +416,7 @@ local function dct_1d_makhoul_ffi(input_ptr, n, output_ptr, method, ctx)
     for i = 0, n - 1 do imag[i] = 0.0 end
 
     -- 2. Compute FFT
-    if method == "pocketfft" and ctx.pocketfft_plan and pocketfft_lib then
-        local in_c = ctx.pocketfft_in_c
-        local out_c = ctx.pocketfft_out_c
-        for i = 0, n - 1 do
-            in_c[i][0], in_c[i][1] = real[i], imag[i]
-        end
-        pocketfft_lib.pocketfft_execute(ctx.pocketfft_plan)
-        for i = 0, n - 1 do
-            real[i], imag[i] = out_c[i][0], out_c[i][1]
-        end
-    elseif method == "lua" then
+    if method == "lua" then
         local l_re, l_im = ctx.l_re, ctx.l_im
         local rev = lua_fft_caches[n].rev
         for i = 0, n - 1 do
@@ -525,7 +447,6 @@ local function dct_1d_makhoul_ffi(input_ptr, n, output_ptr, method, ctx)
 end
 
 
-local phash_pocketfft_cache = {}
 local phash_ctx_cache_ffi = {}
 
 -- Optimized Pure Lua Context
@@ -584,27 +505,6 @@ local function compute_phash_32_ffi(bytes_ptr, start_index)
     local ctx = phash_ctx_cache_ffi[n]
 
     local method = "stockham"
-    if options.audio_use_pocketfft == "yes" then
-        if not pocketfft_lib and not pocketfft_path_tried then
-            pocketfft_path_tried = true
-            pocketfft_lib = load_pocketfft_library()
-        end
-        if pocketfft_lib then
-            method = "pocketfft"
-            if not phash_pocketfft_cache[n] then
-                local in_ptr = pocketfft_lib.pocketfft_malloc(ffi.sizeof("pocketfft_complex") * n)
-                local out_ptr = pocketfft_lib.pocketfft_malloc(ffi.sizeof("pocketfft_complex") * n)
-                local in_c = ffi.cast("pocketfft_complex*", in_ptr)
-                local out_c = ffi.cast("pocketfft_complex*", out_ptr)
-                local plan = pocketfft_lib.pocketfft_plan_dft_1d(n, in_c, out_c, -1, 64)
-                phash_pocketfft_cache[n] = { plan = plan, in_c = in_c, out_c = out_c, in_ptr = in_ptr, out_ptr = out_ptr }
-            end
-            ctx.pocketfft_plan = phash_pocketfft_cache[n].plan
-            ctx.pocketfft_in_c = phash_pocketfft_cache[n].in_c
-            ctx.pocketfft_out_c = phash_pocketfft_cache[n].out_c
-        end
-    end
-
     local tmp_in, tmp_out = ffi.new("double[32]"), ffi.new("double[32]")
     -- Rows
     for y = 0, 31 do
@@ -1039,71 +939,6 @@ local function process_audio_data(pcm_str)
     local num_samples = math.floor(#pcm_str / 2)
     local ptr = ffi.cast("int16_t*", pcm_str)
 
-    -- PocketFFT logic branch
-    if options.audio_use_pocketfft == "yes" then
-        if not pocketfft_lib and not pocketfft_path_tried then
-            pocketfft_path_tried = true
-            msg.info("PocketFFT enabled in config. Searching for library...")
-            pocketfft_lib = load_pocketfft_library()
-            if not pocketfft_lib then
-                msg.error("Could not find or load PocketFFT library. Falling back to internal FFT.")
-            end
-        end
-
-        if pocketfft_lib then
-            local samples = ffi.new("double[?]", num_samples)
-            for i = 0, num_samples - 1 do
-                samples[i] = ptr[i] / 32768.0
-            end
-
-            local hann = ffi.new("double[?]", fft_size)
-            for i = 0, fft_size - 1 do
-                hann[i] = 0.5 * (1.0 - math.cos(2.0 * math.pi * i / (fft_size - 1)))
-            end
-
-            local fft_in = pocketfft_lib.pocketfft_malloc(ffi.sizeof("pocketfft_complex") * fft_size)
-            local fft_out = pocketfft_lib.pocketfft_malloc(ffi.sizeof("pocketfft_complex") * fft_size)
-            local fft_in_c = ffi.cast("pocketfft_complex*", fft_in)
-            local fft_out_c = ffi.cast("pocketfft_complex*", fft_out)
-
-            -- FFTW style sign: -1 is Forward
-            local plan = pocketfft_lib.pocketfft_plan_dft_1d(fft_size, fft_in_c, fft_out_c, -1, 64)
-
-            local num_frames = math.floor((num_samples - fft_size) / hop_size) + 1
-            if num_frames < 0 then num_frames = 0 end
-
-            local peaks_flat = ffi.new("int16_t[?]", num_frames * 5)
-            local counts = ffi.new("int8_t[?]", num_frames)
-            local mag_buf = ffi.new("double[?]", fft_size / 2)
-            local threshold_sq = options.audio_threshold * options.audio_threshold
-
-            for i = 0, num_frames - 1 do
-                local sample_idx = i * hop_size
-                for j = 0, fft_size - 1 do
-                    fft_in_c[j][0] = samples[sample_idx + j] * hann[j]
-                    fft_in_c[j][1] = 0.0
-                end
-
-                pocketfft_lib.pocketfft_execute(plan)
-                for k = 0, fft_size / 2 - 1 do
-
-                    -- Using squared magnitude to avoid sqrt
-                    local r = fft_out_c[k][0]
-                    local i_part = fft_out_c[k][1]
-                    mag_buf[k] = r * r + i_part * i_part
-                end
-                counts[i] = get_peaks_ffi(mag_buf, peaks_flat + i * 5, fft_size / 2, threshold_sq)
-            end
-
-            pocketfft_lib.pocketfft_destroy_plan(plan)
-            pocketfft_lib.pocketfft_free(fft_in)
-            pocketfft_lib.pocketfft_free(fft_out)
-
-            return generate_hashes_ffi(peaks_flat, counts, num_frames)
-        end
-    end
-
-    -- Original FFI Path (Fallback)
     local samples = ffi.new("double[?]", num_samples)
     for i = 0, num_samples - 1 do
         samples[i] = ptr[i] / 32768.0

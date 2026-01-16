@@ -4,12 +4,8 @@
 The script is in a functional and feature-complete state for its primary goal of skipping intros using video or audio fingerprinting. It now includes significant performance optimizations for standard Lua environments.
 
 ## Recent Changes
-- **PocketFFT Implementation**: Successfully implemented a lightweight, header-only C++ library (**PocketFFT**). Created a C-compatible wrapper (`build/pocketfft_wrapper.cpp`) that exposes the expected FFT interface to LuaJIT FFI.
-- **Renamed Everything to PocketFFT**: Updated the build system (Dockerfile and wrapper) to use `pocketfft` naming for all artifacts (`libpocketfft.so`, `libpocketfft.dll`, `libpocketfft.dylib`) and functions (`pocketfft_execute`, etc.).
-- **Verified via Test Script**: Created `test_pocketfft.lua` to verify the functionality of the new library. Confirmed that the forward FFT produces correct results on Windows 64-bit.
-- **PocketFFT Enabled by Default**: Set `audio_use_pocketfft = "yes"` as the default configuration. Updated `main.lua`, `intro-fingerprint.conf`, and `README.md` to reflect this change. Added a detailed performance explanation in the README regarding PocketFFT's use of SIMD instructions (SSE/AVX) for hardware-accelerated Fourier transforms.
-- **Migrated Implementation**: Updated `main.lua` to use the new `pocketfft` FFI interface and library names. Renamed configuration options to `audio_use_pocketfft`.
-- **Updated Documentation**: Removed all mentions of FFTW from `README.md`, `intro-fingerprint.conf`, and the Memory Bank, replacing them with PocketFFT.
+- **Removed PocketFFT**: Completely removed `pocketfft` integration as the handrolled FFT implementation was found to be faster.
+- **Reverted to Internal FFT**: The script now uses the optimized internal Lua/FFI FFT (Stockham Radix-4 & Mixed-Radix) by default.
 - **LuaJIT Troubleshooting Docs**: Added comprehensive instructions to the `README.md` for verifying LuaJIT support and obtaining optimized MPV builds for Windows, macOS, and Linux without compiling from source.
 - **FFT Performance Optimization (Non-LuaJIT)**: Optimized the standard Lua fallback path for audio fingerprinting, achieving a ~2.5x speedup. Changes include zero-allocation processing with reusable buffers, precomputed trigonometric and bit-reversal lookup tables, and an optimized in-place Cooley-Tukey algorithm.
 - **DevContainer Integration**: Added a VS Code DevContainer (Ubuntu 24.04) with pre-installed `mpv`, `ffmpeg`, and automated environment setup (symlinking scripts and config). Fixed hardware-related errors in the container by adding software rendering libraries (`mesa-utils`, `libgl1`) and configuring `mpv.conf` to use headless-friendly defaults (`ao=null`).
@@ -34,16 +30,14 @@ The script is in a functional and feature-complete state for its primary goal of
 - Verifying experimental macOS support.
 
 ## Active Decisions
-- **FFT Implementation**: Supports three tiers of performance:
-    1.  **PocketFFT (FFI)**: Highest performance using the external C library. **Enabled by default.**
-    2.  **Stockham Radix-4 & Mixed-Radix (FFI)**: High performance fallback for LuaJIT when PocketFFT is missing or disabled.
-    3.  **Optimized Cooley-Tukey (Standard Lua)**: Optimized fallback for builds without LuaJIT, using precomputed tables and zero-allocation buffers.
+- **FFT Implementation**: Supports two tiers of performance:
+    1.  **Stockham Radix-4 & Mixed-Radix (FFI)**: High performance implementation for LuaJIT.
+    2.  **Optimized Cooley-Tukey (Standard Lua)**: Optimized fallback for builds without LuaJIT, using precomputed tables and zero-allocation buffers.
 - **Search Logic**: Video uses a centered expanding window; Audio uses **concurrent linear scan** with chunked segments and ordered result processing.
 - **Normalization**: The script applies the `dynaudnorm` filter unconditionally to both the reference capture and the scan workers using default settings. This ensures consistent spectral peak detection across files with different volume levels or channel mixdowns, maintaining stable match ratios.
 - **Match Ratios > 1.0**: Due to "Neighbor Bin Summing" and many-to-many hash matching (common in repetitive audio patterns), match ratios can occasionally exceed 1.0 (100%). This is considered normal behavior and indicates an extremely high-confidence match.
 
 ## Next Steps
-- Verify macOS `libpocketfft.dylib` on real hardware.
 - Potentially add support for persistent fingerprint databases (instead of temp files).
 - Improve error messages for missing FFmpeg or invalid paths.
 - Explore automatic skip (without manual keybind) on file load.

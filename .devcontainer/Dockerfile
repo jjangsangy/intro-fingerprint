@@ -19,7 +19,6 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
         libavutil-dev \
         libegl1-mesa-dev \
         libepoxy-dev \
-        libfftw3-dev \
         libfontconfig1-dev \
         libfreetype6-dev \
         libfribidi-dev \

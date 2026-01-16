@@ -9,7 +9,7 @@ The script is a monolithic Lua script (`main.lua`) that integrates with MPV. It 
 - **Extraction**: Resizes frame to 32x32 grayscale using FFmpeg `vf=scale=32:32,format=gray`.
 - **Hashing**: 
     - **DCT-II**: Computes the Discrete Cosine Transform of the 32x32 image.
-        - **Standard Logic**: Uses Makhoul's method (FFT-based DCT) via FFI or a high-performance C++ wrapper around **PocketFFT**.
+        - **Standard Logic**: Uses Makhoul's method (FFT-based DCT) via FFI using a high-performance C++ wrapper around **PocketFFT**.
         - **Optimized Lua Fallback**: Uses a **Partial Direct DCT** (matrix multiplication) for the pure Lua path. This computes only the first 8 coefficients for each row and column, avoiding unnecessary calculations and complex-number overhead.
     - **Feature Extraction**: Extracts the 8x8 low-frequency coefficients (excluding the DC component).
     - **Thresholding**: Compares each coefficient to the mean of all 64 coefficients to generate bits.
@@ -22,8 +22,8 @@ The script is a monolithic Lua script (`main.lua`) that integrates with MPV. It 
 - **Normalization**: Applies mandatory `dynaudnorm` filter (default settings) to the audio stream. This ensures consistent spectral peaks regardless of source volume or original mixing, making the algorithm volume-invariant with minimal performance overhead.
 - **Processing**:
     - FFT:
-        - **PocketFFT (Primary)**: Enabled by default. Uses a lightweight C++ shim (`pocketfft_wrapper.cpp`) via LuaJIT FFI. This replaces the heavy FFTW3 dependency with a header-only library that still provides SIMD-accelerated performance.
-        - **LuaJIT FFI (Fallback)**: FFI-optimized Stockham Radix-4 & Mixed-Radix implementation used if the PocketFFT shim is missing or disabled.
+        - **PocketFFT (Primary)**: Enabled by default. Uses a lightweight C++ wrapper (`libpocketfft`) via LuaJIT FFI. This provides SIMD-accelerated performance in a compact library.
+        - **LuaJIT FFI (Fallback)**: FFI-optimized Stockham Radix-4 & Mixed-Radix implementation used if the PocketFFT library is missing or disabled.
         - **Standard Lua (Fallback)**: Uses an optimized in-place Cooley-Tukey implementation with precomputed trig tables and bit-reversal caches to minimize GC overhead.
     - Peak detection identifies the most prominent frequencies (top 5 per frame).
 - **Hashing**: Pairs of peaks $[f1, f2, \Delta t]$ are combined into a unique 32-bit hash.

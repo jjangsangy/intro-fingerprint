@@ -13,7 +13,7 @@ When you mark an intro in one episode, the script can search for that same intro
 - **High Performance**: 
   - Uses **LuaJIT FFI** for zero-allocation data processing to handle large audio/video datasets efficiently.
   - Optimized **Pure-Lua Fallback** for environments without LuaJIT (e.g., some Linux builds), achieving ~2.5x faster FFTs than standard implementations.
-  - Accelerated FFT calculations using **libfftw3** (enabled by default).
+  - Accelerated FFT calculations using **PocketFFT** (enabled by default).
 - **Async Execution**: Scans run in the background using mpv coroutines and async subprocesses, ensuring the player remains responsive.
 - **Cross-Platform**: Supports Windows, Linux, and macOS (with appropriate dependencies).
 
@@ -22,9 +22,9 @@ When you mark an intro in one episode, the script can search for that same intro
 - **ffmpeg** (required) must be in your system `PATH`. ([Install Instructions](#install-ffmpeg))
 - **LuaJIT** (optional) is highly recommended. The script uses FFI C-arrays for audio processing to avoid massive Garbage Collection overhead (standard in mpv). ([Install Instructions](#verifying-luajit-support))
 - **'bit' library** (optional): Standard in LuaJIT. Used for faster processing if available.
-- **libfftw3** (optional): Provides faster FFT processing for **audio scans only** 
-  - Windows, Linux support and *macOS M-series Experimental
-  - Pre-built binaries provided in `libs/`, or [build yourself](#building-fftw-libraries).
+- **libpocketfft** (optional): Provides faster FFT processing for **audio scans only** 
+  - Windows, Linux support and macOS ARM64 support.
+  - Pre-built binaries provided in `libs/`, or [build yourself](#building-pocketfft-libraries).
 
 # Installation
 1.  **Download** the ([Latest Release](https://github.com/jjangsangy/intro-fingerprint/releases/latest/download/intro-fingerprint.zip))
@@ -86,7 +86,7 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 ## Audio Options
 | Option                       | Default | Description                                                                 |
 | :--------------------------- | :------ | :-------------------------------------------------------------------------- |
-| `audio_use_fftw`             | `yes`   | Use `libfftw3` for faster audio FFT processing.                             |
+| `audio_use_pocketfft`        | `yes`   | Use `libpocketfft` for faster audio FFT processing.                        |
 | `audio_threshold`            | `10`    | Minimum magnitude for frequency peaks and minimum matches for a valid skip. |
 | `audio_min_match_ratio`      | `0.30`  | Minimum ratio of matching hashes required (0.0 - 1.0).                      |
 | `audio_concurrency`          | `4`     | Number of parallel FFmpeg workers for audio scanning.                       |
@@ -160,11 +160,11 @@ The script is heavily optimized for LuaJIT and high-performance processing.
 
 ## 2. Audio FFT Processing
 
-### Primary: FFTW3 (Enabled by Default)
-The script uses **libfftw3** (via LuaJIT FFI) for the fastest possible Fourier transforms. FFTW is the industry standard for high-performance FFTs, utilizing SIMD instructions (SSE/AVX/NEON) and runtime profiling to optimize calculations for your specific hardware.
+### Primary: PocketFFT (Enabled by Default)
+The script uses **libpocketfft** (via LuaJIT FFI) for the fastest possible Fourier transforms. PocketFFT is a lightweight, header-only C++ library that provides high-performance FFTs with SIMD acceleration (SSE/AVX/NEON).
 
 ### Fallback: Optimized Internal Implementation
-When `libfftw3` is unavailable, the script falls back to highly optimized internal FFT implementations:
+When `libpocketfft` is unavailable, the script falls back to highly optimized internal FFT implementations:
 
 #### For LuaJIT (FFI-Optimized)
 - **Stockham Auto-Sort Algorithm**: Avoids the expensive bit-reversal permutation step, maximizing FFI performance.
@@ -232,7 +232,7 @@ sudo pacman -S ffmpeg
 - **No match found**: 
   - For Video: Try increasing `video_threshold` or ensure the intro is visually similar.
   - For Audio: Ensure the intro has consistent music/audio.
-- **Slow Scans**: Enable `audio_use_fftw` and ensure you are using LuaJIT. See [Verifying LuaJIT Support](#verifying-luajit-support) below.
+- **Slow Scans**: Enable `audio_use_pocketfft` and ensure you are using LuaJIT. See [Verifying LuaJIT Support](#verifying-luajit-support) below.
 
 ## Verifying LuaJIT Support
 
@@ -260,12 +260,12 @@ If the command returns a line containing `luajit`, you are good to go. If it ret
     -   Some distribution packages (Ubuntu/Debian) ship with standard Lua instead of LuaJIT.
     -   **Recommended**: Install via **Flatpak** from [Flathub](https://flathub.org/apps/io.mpv.Mpv), which includes LuaJIT.
 
-# Building FFTW Libraries
+# Building PocketFFT Libraries
 
 The project includes a `Dockerfile` for building the required shared libraries:
-- `libfftw3f.so` (Linux)
-- `libfftw3f-3.dll` (Windows)
-- `libfftw3f.dylib` (macOS M-series ARM64 - **Experimental**)
+- `libpocketfft.so` (Linux)
+- `libpocketfft.dll` (Windows)
+- `libpocketfft.dylib` (macOS ARM64)
 
 ```bash
 docker build --output type=local,dest=. .

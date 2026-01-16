@@ -4,7 +4,10 @@
 The script is in a functional and feature-complete state for its primary goal of skipping intros using video or audio fingerprinting. It now includes significant performance optimizations for standard Lua environments.
 
 ## Recent Changes
-- **FFTW Enabled by Default**: Set `audio_use_fftw = "yes"` as the default configuration. Updated `main.lua`, `intro-fingerprint.conf`, and `README.md` to reflect this change. Added a detailed performance explanation in the README regarding FFTW's use of SIMD instructions (SSE/AVX) for hardware-accelerated Fourier transforms.
+- **Replaced FFTW with PocketFFT**: Successfully replaced the heavy `fftw` dependency with a lightweight, header-only C++ library (**PocketFFT**). Created a C-compatible wrapper (`build/pocketfft_wrapper.cpp`) that exposes the expected FFT interface to LuaJIT FFI.
+- **Renamed Everything to PocketFFT**: Updated the build system (Dockerfile and wrapper) to use `pocketfft` naming for all artifacts (`libpocketfft.so`, `libpocketfft.dll`, `libpocketfft.dylib`) and functions (`pocketfft_execute`, etc.).
+- **Verified via Test Script**: Created `test_pocketfft.lua` to verify the functionality of the new library. Confirmed that the forward FFT produces correct results on Windows 64-bit.
+- **FFTW Enabled by Default**: Set `audio_use_fftw = "yes"` as the default configuration. Updated `main.lua`, `intro-fingerprint.conf`, and `README.md` to reflect this change. Added a detailed performance explanation in the README regarding FFTW's use of SIMD instructions (SSE/AVX) for hardware-accelerated Fourier transforms. (Note: `main.lua` still uses `fftw` naming and needs migration to the new `pocketfft` naming).
 - **LuaJIT Troubleshooting Docs**: Added comprehensive instructions to the `README.md` for verifying LuaJIT support and obtaining optimized MPV builds for Windows, macOS, and Linux without compiling from source.
 - **FFT Performance Optimization (Non-LuaJIT)**: Optimized the standard Lua fallback path for audio fingerprinting, achieving a ~2.5x speedup. Changes include zero-allocation processing with reusable buffers, precomputed trigonometric and bit-reversal lookup tables, and an optimized in-place Cooley-Tukey algorithm.
 - **DevContainer Integration**: Added a VS Code DevContainer (Ubuntu 24.04) with pre-installed `mpv`, `ffmpeg`, and automated environment setup (symlinking scripts and config). Fixed hardware-related errors in the container by adding software rendering libraries (`mesa-utils`, `libgl1`) and configuring `mpv.conf` to use headless-friendly defaults (`ao=null`).
@@ -38,7 +41,8 @@ The script is in a functional and feature-complete state for its primary goal of
 - **Match Ratios > 1.0**: Due to "Neighbor Bin Summing" and many-to-many hash matching (common in repetitive audio patterns), match ratios can occasionally exceed 1.0 (100%). This is considered normal behavior and indicates an extremely high-confidence match.
 
 ## Next Steps
-- Verify macOS `libfftw3f.dylib` on real hardware.
+- **Migrate `main.lua`**: Update `main.lua` to use the new `pocketfft` naming convention for library loading and function calls.
+- Verify macOS `libpocketfft.dylib` on real hardware.
 - Potentially add support for persistent fingerprint databases (instead of temp files).
 - Improve error messages for missing FFmpeg or invalid paths.
 - Explore automatic skip (without manual keybind) on file load.

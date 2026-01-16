@@ -5,13 +5,13 @@
 - **Host Application**: [MPV Media Player](https://mpv.io/)
 - **External Dependencies**:
     - **FFmpeg**: Must be available in the system PATH. Used for frame and audio extraction.
-    - **Docker**: Used for cross-compiling the `libfftw3f` shared objects. The build system uses a multi-stage Dockerfile (`manylinux2014` for Linux, Arch for Windows/macOS) to ensure broad compatibility.
+    - **Docker**: Used for cross-compiling the lightweight **PocketFFT** shim. The build system uses a multi-stage Dockerfile (`manylinux2014` for Linux, Arch for Windows/macOS) to ensure broad compatibility.
     - **DevContainer**: A VS Code DevContainer (Ubuntu 24.04) is available for local development and testing of the MPV environment. It includes a custom-built `mpv-luajit` binary.
 - **Libraries**:
     - `ffi`: LuaJIT Foreign Function Interface for C-level performance.
     - `bit`: Lua bitwise operations (provided by LuaJIT).
     - `utils`: MPV utility library.
-    - `fftw3f`: Fast Fourier Transform library for optimized audio processing. **Enabled by default.** Note: On macOS, this is currently supported only on ARM64 (Apple Silicon) architectures.
+    - `libpocketfft`: A lightweight C++ wrapper for PocketFFT that exposes an FFTW-compatible API. **Enabled by default.** Supports Windows (`libpocketfft.dll`), Linux (`libpocketfft.so`), and macOS ARM64 (`libpocketfft.dylib`).
 
 ## Development Environment
 - **Operating System**: Windows 10 (based on environment details)

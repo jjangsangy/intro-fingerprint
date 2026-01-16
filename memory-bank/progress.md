@@ -28,7 +28,13 @@
 
 ## Future Roadmap
 - [ ] **Persistent Fingerprints**: Moving beyond temp files to a user-specified database or local directory.
+  - [ ] **Detect Bad Fingerprints**: Ensure uniform frames and audio with long silences are rejected as fingerprints.
+  - [ ] **Add Fingerprint Tagging**: Save metadata about media into fingerprint file for better cataloging.
+  - [ ] **Removal Mechanism**: Have the ability to remove specific fingerprints if they are causing mismatches.
+  - [ ] **Logging Fingerprint Match**: Log which fingerprint from which file is being matched.
+  - [ ] **Deduplication**: Ensure we don't save duplicate fingerprints for the same section multiple times.
 - [ ] **Automatic Scanning**: Auto-scan for matches when a new file starts.
 - [ ] **UI/OSD Improvements**: Better visual feedback for scan progress and match confidence.
 - [ ] **Lua Modules**: Separate concerns and split `main.lua` into modules.
 - [ ] **Fingerprint Interoperability**: Ensure both lua and luajit fingerprints can be used interchangeably.
+- [ ] **Add Tests**: Test critical paths and set up a test runner in CI

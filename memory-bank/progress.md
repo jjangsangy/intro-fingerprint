@@ -29,3 +29,5 @@
 - [ ] **Persistent Fingerprints**: Moving beyond temp files to a user-specified database or local directory.
 - [ ] **Automatic Scanning**: Auto-scan for matches when a new file starts.
 - [ ] **UI/OSD Improvements**: Better visual feedback for scan progress and match confidence.
+- [ ] **Lua Modules**: Separate concerns and split `main.lua` into modules.
+- [ ] **Fingerprint Interoperability**: Ensure both lua and luajit fingerprints can be used interchangeably.

@@ -20,6 +20,7 @@
 - [x] **FFT Implementation**: Reverted to optimized internal Lua/FFI implementation as it outperformed PocketFFT.
 - [x] **DevContainer**: VS Code DevContainer for Ubuntu 24.04 with a custom-built `mpv-luajit` (v0.38.0) environment. Supports both X11 and Wayland (`wlshm`) video outputs for compatibility with WSLg.
 - [x] **Code Quality**: Refactored monolithic script to reduce branching and indentation depth using guard clauses.
+- [x] **CI/CD Fix**: Fixed GitHub Action and devcontainer setup script by removing `libs` references after `pocketfft` removal.
 
 ## In Progress
 - [x] Initial Memory Bank Documentation.

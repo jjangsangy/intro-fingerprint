@@ -15,9 +15,6 @@ mkdir -p "$MPV_CONFIG_DIR/script-opts"
 # main.lua
 ln -sf "$WORKSPACE_DIR/main.lua" "$MPV_CONFIG_DIR/scripts/intro-fingerprint/main.lua"
 
-# libs directory
-ln -sfn "$WORKSPACE_DIR/libs" "$MPV_CONFIG_DIR/scripts/intro-fingerprint/libs"
-
 # configuration file
 ln -sf "$WORKSPACE_DIR/intro-fingerprint.conf" "$MPV_CONFIG_DIR/script-opts/intro-fingerprint.conf"
 

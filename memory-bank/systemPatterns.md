@@ -5,48 +5,75 @@ The script uses a modular architecture where `main.lua` acts as the orchestrator
 
 ```mermaid
 flowchart TD
-    subgraph Host [MPV Integration]
+    subgraph Host [MPV Host]
         Input[User Input]
         API[MPV API]
     end
 
-    subgraph Logic [Control Logic]
-        Actions[Actions Orchestrator]
+    subgraph Entry [Entry Point]
+        Main[main.lua]
     end
 
-    subgraph Engine [Processing Engine]
-        Audio[Audio Analysis]
-        Video[Video Analysis]
-        FFT[FFT Library]
+    subgraph Logic [Business Logic]
+        Actions[actions.lua]
     end
 
-    subgraph System [System Interactions]
-        Utils[Utils Helper]
-        FFmpegMod[FFmpeg Module]
-        FFmpegProc[FFmpeg Process]
+    subgraph Features [Feature Modules]
+        Video[video.lua]
+        Audio[audio.lua]
+    end
+
+    subgraph Infra [Infrastructure]
+        FFmpeg[ffmpeg.lua]
+        FFT[fft.lua]
+        UI[ui.lua]
+    end
+
+    subgraph Shared [Shared Utilities]
+        Utils[utils.lua]
+        State[state.lua]
+        Config[config.lua]
+    end
+
+    subgraph External [External Resources]
         FS[File System]
+        Proc[FFmpeg Process]
     end
 
-    %% Trigger
-    Input -->|Trigger| Actions
+    %% Main Entry
+    Input --> Main
+    Main --> Actions
+    Main --> Utils
 
-    %% Audio Data Flow
-    Actions -- Run Task --> FFmpegMod
-    FFmpegMod -- Spawn Process --> FFmpegProc
-    FFmpegProc -- Raw PCM Data --> Actions
-    Actions -- Process Data --> Audio
-    Audio -.->|Use| FFT
+    %% Actions Orchestration
+    Actions --> UI
+    Actions --> State
+    Actions --> Config
+    Actions --> Utils
+    Actions --> FS
 
-    %% Video Data Flow
-    Actions -- Delegate Scan --> Video
-    Video -- Run Task --> FFmpegMod
-    FFmpegMod -- Spawn Process --> FFmpegProc
-    FFmpegProc -- Raw Video Frames --> Video
-    Video -.->|Use| FFT
+    %% Video Scan Logic (Encapsulated)
+    Actions -->|Delegates Scan| Video
+    Video --> FFmpeg
+    Video --> FFT
+    Video --> Utils
 
-    %% Persistence & Effect
-    Actions -- Save/Load Fingerprints --> FS
-    Actions -- Seek Time --> API
+    %% Audio Scan Logic (Orchestrated)
+    Actions -->|Runs Scan| FFmpeg
+    Actions -->|Process Data| Audio
+    Audio --> FFT
+    Audio --> Utils
+
+    %% FFmpeg Execution
+    FFmpeg --> State
+    FFmpeg --> Config
+    FFmpeg --> Proc
+
+    %% Shared Deps
+    Utils --> State
+    Utils --> Config
+    Utils --> API
+    UI --> API
 ```
 
 ## Module Responsibilities

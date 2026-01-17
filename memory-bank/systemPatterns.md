@@ -3,6 +3,53 @@
 ## Architecture Overview
 The script is a monolithic Lua script (`main.lua`) that integrates with MPV. It relies on external processes (`ffmpeg`) for heavy lifting (decoding) and internal FFI logic for data processing.
 
+```mermaid
+flowchart TD
+    subgraph Frontend [Frontend / User Interaction]
+        User[User]
+        KeyBinds["MPV Key Bindings: Ctrl+i, Ctrl+s, Ctrl+Shift+s"]
+    end
+
+    subgraph Host [MPV Host]
+        MPV[MPV Core]
+        Properties["MPV Properties: time-pos, path"]
+    end
+
+    subgraph Backend [Backend / Lua Script Logic]
+        Handlers["Command Handlers: save_intro, skip_intro_audio/video"]
+        Async["Async Runner / Coroutines"]
+        
+        subgraph Engine [Fingerprinting Engine]
+            FFT["FFT / DCT Algorithms (FFI Stockham or Lua Fallback)"]
+            HashGen["Hash Generator: pHash or Constellation"]
+        end
+        
+        subgraph Logic [Matching Logic]
+            Compare["Comparator: Hamming Distance / Histogram"]
+            Decision["Decision Engine: Confidence Thresholds"]
+        end
+    end
+
+    subgraph Data [Data Store & External]
+        FFmpeg["FFmpeg Subprocess: Extraction via pipe:stdout"]
+        FS[("(File System - Fingerprint Storage)")]
+    end
+
+    %% Flow
+    User -->|Triggers| KeyBinds
+    KeyBinds -->|Invokes| Handlers
+    Handlers -->|Reads/Writes| FS
+    Handlers -->|Spawns| Async
+    Async -->|Execute| FFmpeg
+    FFmpeg -->|Raw Audio/Video| FFT
+    FFT --> HashGen
+    HashGen --> Compare
+    Compare --> Decision
+    Decision -->|Set time-pos| Properties
+    Properties -.->|Updates| MPV
+    MPV -.->|State Data| Handlers
+```
+
 ## Key Algorithms
 
 ### 1. Video Fingerprinting: Perceptual Hash (pHash)

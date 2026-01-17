@@ -12,8 +12,9 @@ mkdir -p "$MPV_CONFIG_DIR/scripts/intro-fingerprint"
 mkdir -p "$MPV_CONFIG_DIR/script-opts"
 
 # Symlink files from workspace
-# main.lua
+# main.lua and modules
 ln -sf "$WORKSPACE_DIR/main.lua" "$MPV_CONFIG_DIR/scripts/intro-fingerprint/main.lua"
+ln -sf "$WORKSPACE_DIR/modules" "$MPV_CONFIG_DIR/scripts/intro-fingerprint/modules"
 
 # configuration file
 ln -sf "$WORKSPACE_DIR/intro-fingerprint.conf" "$MPV_CONFIG_DIR/script-opts/intro-fingerprint.conf"

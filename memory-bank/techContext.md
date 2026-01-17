@@ -7,9 +7,12 @@
     - **FFmpeg**: Must be available in the system PATH. Used for frame and audio extraction.
     - **DevContainer**: A VS Code DevContainer (Ubuntu 24.04) is available for local development and testing of the MPV environment. It includes a custom-built `mpv-luajit` binary.
 - **Libraries**:
+    - `mp`: Core MPV API.
+    - `mp.utils` (`utils`): MPV utility functions (e.g., subprocesses, path joining).
+    - `mp.msg` (`msg`): MPV logging and console output.
+    - `mp.options`: MPV configuration and script-opts handling.
     - `ffi`: LuaJIT Foreign Function Interface for C-level performance.
     - `bit`: Lua bitwise operations (provided by LuaJIT).
-    - `utils`: MPV utility library.
 
 ## Development Environment
 - **Operating System**: Windows 10 (based on environment details)

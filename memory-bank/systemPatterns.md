@@ -30,7 +30,7 @@ The script is a monolithic Lua script (`main.lua`) that integrates with MPV. It 
 - **Matching**:
     - **Global Offset Histogram**: For every match, $Offset = T_{long\_file} - T_{query}$ is calculated. A true match produces a massive "cluster" at the same offset.
     - **Neighbor Bin Summing**: To handle timing jitter and "bin splitting," the script sums the counts of three adjacent time bins ($bin_{i-1} + bin_{i} + bin_{i+1}$) when calculating match strength. This ensures robustness against minor alignment variations.
-    - **Match Ratio**: Skips require a minimum percentage of intro hashes to be present (default 25%) to filter false positives from similar music. The ratio is calculated based on the summed neighbor peaks.
+    - **Match Ratio**: Skips require a minimum percentage of intro hashes to be present (default 30%) to filter false positives from similar music. The ratio is calculated based on the summed neighbor peaks.
 - **Search Strategy**: **Concurrent Linear Scan**. The timeline is divided into contiguous segments (default 15s). Each segment is processed by a concurrent worker with sufficient padding to ensure no matches are lost at segment boundaries. Hashes are filtered to prevent double-counting in overlapping regions.
 
 ## Performance Patterns

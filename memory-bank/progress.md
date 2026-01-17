@@ -21,6 +21,7 @@
 - [x] **DevContainer**: VS Code DevContainer for Ubuntu 24.04 with a custom-built `mpv-luajit` (v0.38.0) environment. Supports both X11 and Wayland (`wlshm`) video outputs for compatibility with WSLg.
 - [x] **Code Quality**: Refactored monolithic script to reduce branching and indentation depth using guard clauses.
 - [x] **CI/CD Fix**: Fixed GitHub Action and devcontainer setup script by removing `libs` references after `pocketfft` removal.
+- [x] **Lua Modules & Standards**: Successfully refactored the project into a modular directory structure under `modules/`. Consolidated all architectural standards and coding best practices into `.clinerules/mpv-lua-practices.md` for consistent project enforcement.
 
 ## In Progress
 - [x] Initial Memory Bank Documentation.
@@ -35,6 +36,5 @@
   - [ ] **Deduplication**: Ensure we don't save duplicate fingerprints for the same section multiple times.
 - [ ] **Automatic Scanning**: Auto-scan for matches when a new file starts.
 - [ ] **UI/OSD Improvements**: Better visual feedback for scan progress and match confidence.
-- [ ] **Lua Modules**: Separate concerns and split `main.lua` into modules.
 - [ ] **Fingerprint Interoperability**: Ensure both lua and luajit fingerprints can be used interchangeably.
 - [ ] **Add Tests**: Test critical paths and set up a test runner in CI

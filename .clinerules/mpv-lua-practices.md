@@ -37,3 +37,11 @@ Additionally, scripts MUST include:
 - A top-level file header describing the overall purpose of the script.
 - Documentation for global variables using `--- @var name type - description` or `--- @table name - description`.
 - Documentation for key bindings (`mp.add_key_binding`) and property observers (`mp.observe_property`) describing their triggers and effects.
+
+## Modular Structure & Standards
+- **Directory Structure**: All logic modules MUST be placed in the `modules/` directory. `main.lua` acts as the orchestrator.
+- **Local Table Pattern**: Every module file MUST start with `local M = {}` and end with `return M`. All exports MUST be attached to `M`.
+- **Strict Locals**: Use `local` for every variable and function. Do NOT pollute the global environment.
+- **Dependency Management**: Use dot-notation for requirements (e.g., `local utils = require "modules.utils"`).
+- **State Management**: Use a dedicated `state.lua` module for shared state.
+- **Single Responsibility**: Each module should focus on one logical area.

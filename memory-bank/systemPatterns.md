@@ -1,53 +1,51 @@
 # System Patterns
 
 ## Architecture Overview
-The script is a monolithic Lua script (`main.lua`) that integrates with MPV. It relies on external processes (`ffmpeg`) for heavy lifting (decoding) and internal FFI logic for data processing.
+The script uses a modular architecture where `main.lua` acts as the orchestrator, requiring specialized modules from the `modules/` directory. All architectural standards and coding best practices are strictly enforced as defined in `.clinerules/mpv-lua-practices.md`. It relies on external processes (`ffmpeg`) for decoding and internal FFI logic for data processing.
 
 ```mermaid
 flowchart TD
     subgraph Frontend [Frontend / User Interaction]
         User[User]
-        KeyBinds["MPV Key Bindings: Ctrl+i, Ctrl+s, Ctrl+Shift+s"]
+        KeyBinds["Key Bindings: Ctrl+i, Ctrl+s, Ctrl+Shift+s"]
     end
 
     subgraph Host [MPV Host]
         MPV[MPV Core]
-        Properties["MPV Properties: time-pos, path"]
+        Properties["Properties: time-pos, path"]
     end
 
-    subgraph Backend [Backend / Lua Script Logic]
-        Handlers["Command Handlers: save_intro, skip_intro_audio/video"]
-        Async["Async Runner / Coroutines"]
+    subgraph Backend [Backend / Modular Logic]
+        Main["main.lua (Orchestrator)"]
+        Actions["modules:actions.lua (Handlers)"]
+        Utils["modules:utils.lua (Async/FFI)"]
+        State["modules:state.lua (Shared State)"]
         
-        subgraph Engine [Fingerprinting Engine]
-            FFT["FFT / DCT Algorithms (FFI Stockham or Lua Fallback)"]
-            HashGen["Hash Generator: pHash or Constellation"]
-        end
-        
-        subgraph Logic [Matching Logic]
-            Compare["Comparator: Hamming Distance / Histogram"]
-            Decision["Decision Engine: Confidence Thresholds"]
+        subgraph Engine [Processing Engine]
+            FFT["modules:fft.lua (Algorithms)"]
+            Video["modules:video.lua (pHash)"]
+            Audio["modules:audio.lua (Constellation)"]
         end
     end
 
-    subgraph Data [Data Store & External]
-        FFmpeg["FFmpeg Subprocess: Extraction via pipe:stdout"]
-        FS[("(File System - Fingerprint Storage)")]
+    subgraph Data [External]
+        FFmpeg["FFmpeg Subprocess"]
+        FS["File System"]
     end
 
     %% Flow
     User -->|Triggers| KeyBinds
-    KeyBinds -->|Invokes| Handlers
-    Handlers -->|Reads/Writes| FS
-    Handlers -->|Spawns| Async
-    Async -->|Execute| FFmpeg
-    FFmpeg -->|Raw Audio/Video| FFT
-    FFT --> HashGen
-    HashGen --> Compare
-    Compare --> Decision
-    Decision -->|Set time-pos| Properties
-    Properties -.->|Updates| MPV
-    MPV -.->|State Data| Handlers
+    KeyBinds -->|Calls| Main
+    Main -->|Invokes| Actions
+    Actions -->|Uses| Video
+    Actions -->|Uses| Audio
+    Actions -->|Manages| State
+    Actions -->|Spawns| Utils
+    Utils -->|Executes| FFmpeg
+    FFmpeg -->|Data| Engine
+    Engine -->|FFT/Hashing| Engine
+    Actions -->|Update| Properties
+    Properties -.->|Sync| MPV
 ```
 
 ## Key Algorithms

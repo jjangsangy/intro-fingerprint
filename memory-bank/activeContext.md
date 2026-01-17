@@ -4,6 +4,7 @@
 The script is in a functional and feature-complete state for its primary goal of skipping intros using video or audio fingerprinting. It now includes significant performance optimizations for standard Lua environments.
 
 ## Recent Changes
+- **Modular Refactor & Standards Consolidation**: Refactored the monolithic `main.lua` into a modular directory structure under `modules/`. All architectural standards and coding best practices have been consolidated into `.clinerules/mpv-lua-practices.md` to ensure project-wide consistency.
 - **Removed PocketFFT**: Completely removed `pocketfft` integration as the handrolled FFT implementation was found to be faster.
 - **Reverted to Internal FFT**: The script now uses the optimized internal Lua/FFI FFT (Stockham Radix-4 & Mixed-Radix) by default.
 - **LuaJIT Troubleshooting Docs**: Added comprehensive instructions to the `README.md` for verifying LuaJIT support and obtaining optimized MPV builds for Windows, macOS, and Linux without compiling from source.
@@ -27,8 +28,8 @@ The script is in a functional and feature-complete state for its primary goal of
 - **CI/CD Fix**: Updated the GitHub Action release workflow and the devcontainer setup script to remove references to the non-existent `libs` directory, following the removal of `pocketfft`.
 
 ## Current Focus
+- Verification of the new modular architecture.
 - User feedback and stability improvements.
-- Verifying experimental macOS support.
 
 ## Active Decisions
 - **FFT Implementation**: Supports two tiers of performance:

@@ -106,12 +106,11 @@ local function init_phash_lua_dct_matrix()
     for i = 1, 64 do phash_lua_context.values_flat[i] = 0 end
 end
 
---- Compute a 32x32 pHash using FFI
+--- Compute 32x32 DCT using FFI (Helper)
 -- @param bytes_ptr cdata - Pointer to raw grayscale image data
--- @param start_index number - Offset in the buffer to start reading
--- @return table - 8-byte hash as an array of numbers
--- @note Performs 2D DCT and extracts low-frequency coefficients to generate a 64-bit hash
-function M.compute_phash_32_ffi(bytes_ptr, start_index)
+-- @param start_index number - Offset
+-- @return cdata - Pointer to 1024 doubles (DCT coefficients)
+local function compute_dct_32_ffi(bytes_ptr, start_index)
     local n = 32
     local data = utils.ffi.new("double[1024]")
     local sum = 0
@@ -150,6 +149,16 @@ function M.compute_phash_32_ffi(bytes_ptr, start_index)
         dct_1d_makhoul_ffi(tmp_in, 32, tmp_out, method, ctx)
         for y = 0, 31 do data[y * 32 + x] = tmp_out[y] end
     end
+    return data
+end
+
+--- Compute a 32x32 pHash using FFI
+-- @param bytes_ptr cdata - Pointer to raw grayscale image data
+-- @param start_index number - Offset in the buffer to start reading
+-- @return table - 8-byte hash as an array of numbers
+-- @note Performs 2D DCT and extracts low-frequency coefficients to generate a 64-bit hash
+function M.compute_phash_32_ffi(bytes_ptr, start_index)
+    local data = compute_dct_32_ffi(bytes_ptr, start_index)
 
     local values = {}
     local total_sum = 0
@@ -177,16 +186,15 @@ function M.compute_phash_32_ffi(bytes_ptr, start_index)
     return hash
 end
 
---- Compute a 32x32 pHash using pure Lua
+--- Compute Partial DCT (8x8 low freq) using Lua (Helper)
 -- @param bytes string - Raw grayscale image data
--- @param start_index number - Offset in the string to start reading
--- @return table - 8-byte hash as an array of numbers
--- @note Uses Partial Direct DCT for performance without LuaJIT FFI
-function M.compute_phash_32_lua(bytes, start_index)
+-- @param start_index number - Offset
+-- @return table - Array of 64 coefficients
+local function compute_dct_partial_lua(bytes, start_index)
     init_phash_lua_dct_matrix()
     local ctx = phash_lua_context
     local dct_mat = ctx.dct_matrix
-    if not dct_mat then return { 0, 0, 0, 0, 0, 0, 0, 0 } end
+    if not dct_mat then return nil end
 
     local values_flat = ctx.values_flat
 
@@ -210,7 +218,6 @@ function M.compute_phash_32_lua(bytes, start_index)
         end
     end
 
-    local total_sum = 0
     local values_idx = 1
     for k = 1, 8 do
         local mat_row = dct_mat[k]
@@ -221,9 +228,24 @@ function M.compute_phash_32_lua(bytes, start_index)
                 col_sum = col_sum + col_data[n] * mat_row[n]
             end
             values_flat[values_idx] = col_sum
-            total_sum = total_sum + col_sum
             values_idx = values_idx + 1
         end
+    end
+    return values_flat
+end
+
+--- Compute a 32x32 pHash using pure Lua
+-- @param bytes string - Raw grayscale image data
+-- @param start_index number - Offset in the string to start reading
+-- @return table - 8-byte hash as an array of numbers
+-- @note Uses Partial Direct DCT for performance without LuaJIT FFI
+function M.compute_phash_32_lua(bytes, start_index)
+    local values_flat = compute_dct_partial_lua(bytes, start_index)
+    if not values_flat then return { 0, 0, 0, 0, 0, 0, 0, 0 } end
+
+    local total_sum = 0
+    for i = 1, 64 do
+        total_sum = total_sum + values_flat[i]
     end
 
     local mean_threshold = total_sum / 64
@@ -240,6 +262,128 @@ function M.compute_phash_32_lua(bytes, start_index)
         end
     end
     return hash
+end
+
+--- Validate a frame before adding to database
+-- @param frame_data cdata|string - The 32x32 grayscale frame data
+-- @param is_ffi boolean - Whether the data is FFI cdata
+-- @return boolean, string - Valid status and rejection reason
+-- @note Performs Stage 1 (Spatial) and Stage 2 (DCT) quality checks
+function M.validate_frame(frame_data, is_ffi)
+    local size = config.options.video_phash_size
+    local total_pixels = size * size
+    local ptr, get_pixel
+
+    if is_ffi then
+        ptr = frame_data
+        get_pixel = function(i) return ptr[i - 1] end
+    else
+        ptr = frame_data
+        get_pixel = function(i) return string.byte(ptr, i) end
+    end
+
+    -- Stage 1: Fast Spatial Checks
+
+    -- 1. Variance/StdDev
+    local sum = 0
+    local sum_sq = 0
+    local histogram = {}
+
+    for i = 1, total_pixels do
+        local val = get_pixel(i)
+        sum = sum + val
+        sum_sq = sum_sq + val * val
+        histogram[val] = (histogram[val] or 0) + 1
+    end
+
+    local mean = sum / total_pixels
+    local variance = (sum_sq / total_pixels) - (mean * mean)
+    -- Fix floating point precision issues
+    if variance < 0 then variance = 0 end
+    local std_dev = math.sqrt(variance)
+
+    if std_dev < 10 then return false, "Low Variance (StdDev: " .. string.format("%.1f", std_dev) .. ")" end
+
+    -- 2. Histogram Peak
+    local max_count = 0
+    for k, v in pairs(histogram) do
+        if v > max_count then max_count = v end
+    end
+    local peak_ratio = max_count / total_pixels
+    if peak_ratio > 0.70 then return false, "Dominant Color > 70%" end
+
+    -- 3. Edge Density (Simple Gradient)
+    local edge_pixels = 0
+    local edge_threshold = 20
+    for y = 0, size - 2 do
+        for x = 0, size - 2 do
+            local i = y * size + x + 1
+            local p = get_pixel(i)
+            local px = get_pixel(i + 1)
+            local py = get_pixel(i + size)
+
+            local gx = math.abs(p - px)
+            local gy = math.abs(p - py)
+            if (gx + gy) > edge_threshold then
+                edge_pixels = edge_pixels + 1
+            end
+        end
+    end
+    local edge_ratio = edge_pixels / total_pixels
+    if edge_ratio < 0.015 then return false, "Low Edge Density (< 1.5%)" end
+
+    -- Stage 2: DCT-Based Checks
+    -- Check pHash Region Variance (8x8 low-freq)
+    -- Check AC/DC Energy Ratio
+
+    -- For AC/DC Energy, we can use the spatial variance we already computed!
+    -- Total Energy = sum_sq
+    -- AC Energy = variance * total_pixels
+    -- Ratio = AC / Total
+
+    local total_energy = sum_sq
+    local ac_energy = variance * total_pixels
+    local ac_ratio = 0
+    if total_energy > 0 then
+        ac_ratio = ac_energy / total_energy
+    end
+
+    if ac_ratio < 0.10 then return false, "Low AC Energy (< 10%)" end
+
+    -- pHash Region Variance (DCT)
+    local dct_vals
+    if is_ffi then
+        local data = compute_dct_32_ffi(frame_data, 0)
+        -- Extract 8x8 block (0..7, 0..7)
+        dct_vals = {}
+        for y = 0, 7 do
+            for x = 0, 7 do
+                table.insert(dct_vals, data[y * 32 + x])
+            end
+        end
+    else
+        dct_vals = compute_dct_partial_lua(frame_data, 0)
+    end
+
+    if not dct_vals then return false, "DCT Calculation Failed" end
+
+    -- Compute variance of the 8x8 region (excluding DC at index 1)
+    local r_sum = 0
+    local r_sum_sq = 0
+    local count = 63 -- Exclude DC
+
+    for i = 2, 64 do -- Start from 2 to exclude DC
+        local v = dct_vals[i]
+        r_sum = r_sum + v
+        r_sum_sq = r_sum_sq + v * v
+    end
+
+    local r_mean = r_sum / count
+    local r_var = (r_sum_sq / count) - (r_mean * r_mean)
+
+    if r_var < 50 then return false, "Low pHash Region Variance (" .. string.format("%.1f", r_var) .. ")" end
+
+    return true, "Passed"
 end
 
 --- Calculate Hamming distance between two 64-bit hashes

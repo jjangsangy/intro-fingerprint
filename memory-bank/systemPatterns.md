@@ -95,6 +95,9 @@ flowchart TD
 
 ### 1. Video Fingerprinting: Perceptual Hash (pHash)
 - **Extraction**: Resizes frame to 32x32 grayscale using FFmpeg `vf=scale=32:32,format=gray`.
+- **Validation**: Rejects low-quality frames to prevent hash collisions.
+    - **Stage 1 (Spatial)**: Checks for Variance (StdDev < 10), Histogram Peak (> 70%), and Edge Density (< 1.5%).
+    - **Stage 2 (DCT)**: Checks for AC/DC Energy Ratio (< 10%) and pHash Region Variance (< 50).
 - **Hashing**: 
     - **DCT-II**: Computes the Discrete Cosine Transform of the 32x32 image.
         - **Standard Logic**: Uses Makhoul's method (FFT-based DCT) via FFI using the optimized internal Stockham implementation.

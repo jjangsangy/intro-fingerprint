@@ -28,6 +28,7 @@ The script is in a functional and feature-complete state for its primary goal of
 - **CI/CD Fix**: Updated the GitHub Action release workflow and the devcontainer setup script to remove references to the non-existent `libs` directory, following the removal of `pocketfft`.
 - **FFmpeg Abstraction Layer**: Introduced `modules/ffmpeg.lua` to centralize FFmpeg command construction and execution. This refactor removed direct subprocess management from `actions.lua`, `video.lua`, and `utils.lua`, providing a cleaner, profile-based interface for running FFmpeg tasks.
 - **Memory Bank Synchronization**: Updated the memory bank to reflect the recent modular refactor and the addition of the FFmpeg abstraction layer.
+- **Frame Quality Rejection**: Implemented a two-stage validation system (Spatial + DCT) to reject uniform, repetitive, or featureless frames before adding them to the database.
 
 ## Current Focus
 - User feedback and stability improvements.

@@ -31,6 +31,13 @@ function M.save_intro()
     local res_v = ffmpeg.run_task('extract_video', { time = time_pos, path = path })
 
     if res_v and res_v.status == 0 and res_v.stdout and #res_v.stdout > 0 then
+        local valid, reason = video.validate_frame(res_v.stdout, false)
+        if not valid then
+            utils.log_info("Frame Rejected: " .. reason)
+            ui.show_message("Frame Rejected: " .. reason, 4)
+            return
+        end
+
         local file_v = io.open(fp_path_v, "wb")
         if file_v then
             file_v:write(tostring(time_pos) .. "\n")

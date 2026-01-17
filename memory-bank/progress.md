@@ -23,6 +23,7 @@
 - [x] **CI/CD Fix**: Fixed GitHub Action and devcontainer setup script by removing `libs` references after `pocketfft` removal.
 - [x] **FFmpeg Abstraction Layer**: Refactored codebase to use a dedicated `modules/ffmpeg.lua` for all external process interactions.
 - [x] **Lua Modules & Standards**: Successfully refactored the project into a modular directory structure under `modules/`. Consolidated all architectural standards and coding best practices into `.clinerules/mpv-lua-practices.md` for consistent project enforcement.
+- [x] **Frame Quality Rejection**: Implemented a two-stage validation system (Spatial + DCT) to reject low-quality frames.
 
 ## In Progress
 - [x] Initial Memory Bank Documentation.

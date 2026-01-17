@@ -22,7 +22,8 @@ flowchart TD
 
     subgraph System [System Interactions]
         Utils[Utils Helper]
-        FFmpeg[FFmpeg Process]
+        FFmpegMod[FFmpeg Module]
+        FFmpegProc[FFmpeg Process]
         FS[File System]
     end
 
@@ -30,16 +31,17 @@ flowchart TD
     Input -->|Trigger| Actions
 
     %% Audio Data Flow
-    Actions -- Spawn Workers --> FFmpeg
-    FFmpeg -- Raw PCM Data --> Actions
+    Actions -- Run Task --> FFmpegMod
+    FFmpegMod -- Spawn Process --> FFmpegProc
+    FFmpegProc -- Raw PCM Data --> Actions
     Actions -- Process Data --> Audio
     Audio -.->|Use| FFT
 
     %% Video Data Flow
     Actions -- Delegate Scan --> Video
-    Video -- Async Wrapper --> Utils
-    Utils -- Spawn Process --> FFmpeg
-    FFmpeg -- Raw Video Frames --> Video
+    Video -- Run Task --> FFmpegMod
+    FFmpegMod -- Spawn Process --> FFmpegProc
+    FFmpegProc -- Raw Video Frames --> Video
     Video -.->|Use| FFT
 
     %% Persistence & Effect
@@ -54,7 +56,8 @@ flowchart TD
 | `main.lua` | Script entry point. Registers event listeners (e.g., `end-file` for cleanup) and binds user keys. |
 | `modules/config.lua` | Centralized configuration management. Defines default options and loads overrides via `mp.options`. |
 | `modules/actions.lua` | High-level business logic. Orchestrates fingerprint capture (`save_intro`) and asynchronous scanning (`skip_intro_video`, `skip_intro_audio`). |
-| `modules/utils.lua` | Common utility functions. Handles FFI loading with fallbacks, async coroutine management, subprocess execution, and path generation. |
+| `modules/ffmpeg.lua` | FFmpeg command wrapper. Abstractly manages command profiles, construction, and sync/async execution. |
+| `modules/utils.lua` | Common utility functions. Handles FFI loading with fallbacks, async coroutine management, and path generation. |
 | `modules/ui.lua` | Simple abstraction for User Interface feedback via MPV's OSD. |
 | `modules/state.lua` | Encapsulates shared runtime state (e.g., `scanning` flag) to prevent race conditions and manage task cancellation. |
 | `modules/video.lua` | Implements video pHash calculation and segment scanning logic. |

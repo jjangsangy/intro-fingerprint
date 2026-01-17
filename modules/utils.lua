@@ -66,35 +66,6 @@ function M.run_async(func)
     resume()
 end
 
---- Execute a subprocess asynchronously within a coroutine
--- @param t table - Table containing 'args' for the subprocess
--- @return table - The result table containing status, stdout, stderr
--- @note Uses mp.command_native_async() and yields the coroutine
--- @note Falls back to utils.subprocess() if not running in a coroutine
-function M.async_subprocess(t)
-    local co = coroutine.running()
-    if not co then return mp_utils.subprocess(t) end
-
-    local cmd = {
-        name = "subprocess",
-        args = t.args,
-        capture_stdout = true,
-        capture_stderr = true
-    }
-
-    state.current_scan_token = mp.command_native_async(cmd, function(success, result, err)
-        coroutine.resume(co, success, result, err)
-    end)
-
-    local success, result, err = coroutine.yield()
-    state.current_scan_token = nil
-
-    if not success then
-        return { status = -1, error = err }
-    end
-    return result
-end
-
 --- Get the system temporary directory
 -- @return string - Path to the temp directory
 function M.get_temp_dir()

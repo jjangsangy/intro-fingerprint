@@ -5,6 +5,7 @@ local utils = require 'modules.utils'
 local ui = require 'modules.ui'
 local video = require 'modules.video'
 local audio = require 'modules.audio'
+local ffmpeg = require 'modules.ffmpeg'
 
 local M = {}
 
@@ -27,17 +28,9 @@ function M.save_intro()
     local fp_path_v = utils.get_video_fingerprint_path()
     utils.log_info("Saving video fingerprint to: " .. fp_path_v)
 
-    local vf_str = string.format("scale=%d:%d:flags=bilinear,format=gray", config.options.video_phash_size,
-        config.options.video_phash_size)
-    local args_v = {
-        "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-hwaccel", "auto",
-        "-ss", tostring(time_pos), "-i", path, "-map", "v:0",
-        "-vframes", "1", "-vf", vf_str, "-f", "rawvideo", "-y", "-"
-    }
+    local res_v = ffmpeg.run_task('extract_video', { time = time_pos, path = path })
 
-    local res_v = require('mp.utils').subprocess({ args = args_v, cancellable = false, capture_stderr = true })
-
-    if res_v.status == 0 and res_v.stdout and #res_v.stdout > 0 then
+    if res_v and res_v.status == 0 and res_v.stdout and #res_v.stdout > 0 then
         local file_v = io.open(fp_path_v, "wb")
         if file_v then
             file_v:write(tostring(time_pos) .. "\n")
@@ -60,18 +53,10 @@ function M.save_intro()
         return
     end
 
-    local args_a = {
-        "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-vn", "-sn",
-        "-ss", tostring(start_a), "-t", tostring(dur_a),
-        "-i", path, "-map", "a:0",
-        "-ac", "1", "-ar", tostring(config.options.audio_sample_rate),
-        "-af", "dynaudnorm",
-        "-f", "s16le", "-y", "-"
-    }
-    local res_a = require('mp.utils').subprocess({ args = args_a, cancellable = false, capture_stderr = true })
+    local res_a = ffmpeg.run_task('extract_audio', { start = start_a, duration = dur_a, path = path })
 
-    if res_a.status ~= 0 or not res_a.stdout or #res_a.stdout == 0 then
-        utils.log_info("Error capturing audio: " .. (res_a.stderr or "unknown"))
+    if not res_a or res_a.status ~= 0 or not res_a.stdout or #res_a.stdout == 0 then
+        utils.log_info("Error capturing audio: " .. ((res_a and res_a.stderr) or "unknown"))
         ui.show_message("Intro Captured! (Video + Audio)", 2)
         return
     end
@@ -90,13 +75,19 @@ function M.save_intro()
 
         local factor = config.options.audio_hop_size / config.options.audio_sample_rate
         if utils.ffi_status and type(hashes) == "cdata" then
-            for i = 0, count - 1 do
-                local h = hashes[i]
-                file_a:write(string.format("%d %.4f\n", h.h, h.t * factor))
+            if hashes then
+                for i = 0, count - 1 do
+                    local h = hashes[i]
+                    if h then
+                        file_a:write(string.format("%d %.4f\n", h.h, h.t * factor))
+                    end
+                end
             end
         else
-            for _, h in ipairs(hashes) do
-                file_a:write(string.format("%d %.4f\n", h.h, h.t * factor))
+            if hashes then
+                for _, h in ipairs(hashes) do
+                    file_a:write(string.format("%d %.4f\n", h.h, h.t * factor))
+                end
             end
         end
         file_a:close()
@@ -365,17 +356,8 @@ function M.skip_intro_audio()
         -- @note Uses mp.command_native_async to run FFmpeg and processes results in a callback
         local function spawn_worker(scan_time)
             active_workers = active_workers + 1
-            local args = {
-                "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-vn", "-sn",
-                "-ss", tostring(scan_time), "-t", tostring(segment_dur + padding),
-                "-i", path, "-map", "a:0",
-                "-ac", "1", "-ar", tostring(config.options.audio_sample_rate),
-                "-af", "dynaudnorm",
-                "-f", "s16le", "-y", "-"
-            }
-
             local ffmpeg_start = mp.get_time()
-            mp.command_native_async({ name = "subprocess", args = args, capture_stdout = true },
+            ffmpeg.run_task('scan_audio', { start = scan_time, duration = segment_dur + padding, path = path },
                 function(success, res, err)
                     active_workers = active_workers - 1
                     perf_stats.ffmpeg = perf_stats.ffmpeg + (mp.get_time() - ffmpeg_start)

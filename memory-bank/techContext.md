@@ -37,6 +37,7 @@ intro-fingerprint/
 │   ├── actions.lua         # High-level scan/capture handlers
 │   ├── audio.lua           # Audio fingerprinting logic
 │   ├── config.lua          # Configuration & defaults
+│   ├── ffmpeg.lua          # FFmpeg command wrapper
 │   ├── fft.lua             # FFT algorithms (Lua & FFI)
 │   ├── state.lua           # Shared runtime state
 │   ├── ui.lua              # OSD feedback abstraction

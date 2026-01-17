@@ -2,6 +2,7 @@ local mp = require 'mp'
 local config = require 'modules.config'
 local utils = require 'modules.utils'
 local fft = require 'modules.fft'
+local ffmpeg = require 'modules.ffmpeg'
 
 local M = {}
 
@@ -284,21 +285,11 @@ end
 function M.scan_video_segment(start_time, duration, video_path, target_raw_bytes, stats)
     if duration <= 0 then return nil, nil end
 
-    local vf_str = string.format("fps=1/%s,scale=%d:%d:flags=bilinear,format=gray",
-        config.options.video_interval, config.options.video_phash_size, config.options.video_phash_size)
-
-    local args = {
-        "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-hwaccel", "auto",
-        "-ss", tostring(start_time), "-t", tostring(duration),
-        "-skip_frame", "bidir", "-skip_loop_filter", "all",
-        "-i", video_path, "-map", "v:0", "-vf", vf_str, "-f", "rawvideo", "-"
-    }
-
     local ffmpeg_start = mp.get_time()
-    local res = utils.async_subprocess({ args = args })
+    local res = ffmpeg.run_task('scan_video', { start = start_time, duration = duration, path = video_path })
     local ffmpeg_end = mp.get_time()
 
-    if res.status ~= 0 or not res.stdout or #res.stdout == 0 then
+    if not res or res.status ~= 0 or not res.stdout or #res.stdout == 0 then
         -- Silent fail is better for scan loops, but log if debug
         if config.options.debug == "yes" then mp.msg.error("FFmpeg failed during scan.") end
         return nil, nil
@@ -338,7 +329,7 @@ function M.scan_video_segment(start_time, duration, video_path, target_raw_bytes
             current_hash = M.compute_phash_32_lua(stream, offset)
         end
 
-        local dist = M.video_hamming_distance(target_hash, current_hash)
+        local dist = (target_hash and current_hash) and M.video_hamming_distance(target_hash, current_hash) or 65
 
         if dist < min_dist then
             min_dist = dist

@@ -144,6 +144,24 @@ The script uses two primary methods for fingerprinting:
 - **Search Strategy**: The search starts around the timestamp of the saved fingerprint and expands outward.
 - **Optimization**: FFmpeg video decoding is the most expensive part of the pipeline. By assuming the intro is at a similar location (common in episodic content), we avoid decoding the entire stream, resulting in much faster scans.
 
+# Quality Validation
+
+To prevent false positives and wasted scans, the script validates media quality before creating a fingerprint. If a fingerprint is rejected, you will see an "Audio Rejected" or "Frame Rejected" message.
+
+- **Audio Rejection**:
+    - **Silence Detected**: Audio is too quiet (RMS < 0.005).
+    - **Signal Too Sparse**: Audio is mostly silence (< 10% active samples).
+    - **Low Complexity**: Audio lacks distinct frequency peaks (< 50 hashes generated).
+
+- **Video Rejection**:
+    - **Low Variance**: Frame is too uniform (StdDev < 10).
+    - **Dominant Color**: Single color covers > 70% of the frame (e.g., black screen).
+    - **Low Edge Density**: Frame lacks detail/edges (< 1.5%).
+    - **Low AC Energy**: Frame lacks texture/contrast (< 10%).
+    - **Low pHash Variance**: DCT low-frequencies are too uniform (< 50).
+
+If you encounter these errors, try moving the playback position slightly forward or backward to a more complex part of the intro (e.g., a scene with action or music).
+
 # Performance & Technical Details
 
 The script is heavily optimized for LuaJIT and high-performance processing.
@@ -219,10 +237,17 @@ sudo pacman -S ffmpeg
 ```
 # Troubleshooting
 
-- **"FFmpeg failed during scan"**: Ensure `ffmpeg` is in your system PATH and accessible by mpv.
+- **"Audio Rejected" / "Frame Rejected"**:
+    - **Cause**: The scene is too simple (silence, black screen, featureless background) to generate a unique fingerprint.
+    - **Solution**: Seek forward or backward by a few seconds to a scene with clear audio (dialogue/music) or visual detail, then press `Ctrl+i` again.
+
+- **"FFmpeg failed during scan"**: 
+    - **Cause**: `ffmpeg` is missing or not in system PATH.
+    - **Solution**: Install FFmpeg and verify it runs from a terminal.
+
 - **No match found**: 
-  - For Video: Try increasing `video_threshold` or ensure the intro is visually similar.
-  - For Audio: Ensure the intro has consistent music/audio.
+    - **Video**: Try increasing `video_threshold` in config, or ensure the intro is visually identical.
+    - **Audio**: Ensure the intro music is consistent. If the intro has variable music but same video, use Video Skip (`Ctrl+Shift+s`).
 
 ## Verifying LuaJIT Support
 

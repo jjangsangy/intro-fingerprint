@@ -24,6 +24,7 @@
 - [x] **FFmpeg Abstraction Layer**: Refactored codebase to use a dedicated `modules/ffmpeg.lua` for all external process interactions.
 - [x] **Lua Modules & Standards**: Successfully refactored the project into a modular directory structure under `modules/`. Consolidated all architectural standards and coding best practices into `.clinerules/mpv-lua-practices.md` for consistent project enforcement.
 - [x] **Frame Quality Rejection**: Implemented a two-stage validation system (Spatial + DCT) to reject low-quality frames.
+- [x] **Sound Quality Rejection**: Added RMS and sparsity validation for audio fingerprints, plus "low complexity" rejection for samples with too few hashes.
 
 ## In Progress
 - [x] Initial Memory Bank Documentation.
@@ -32,7 +33,7 @@
 
 ## Future Roadmap
 - [ ] **Persistent Fingerprints**: Moving beyond temp files to a user-specified database or local directory.
-  - [ ] **Detect Bad Fingerprints**: Pre-filter low entropy images using DCT energy and audio with long silences.
+  - [x] **Detect Bad Fingerprints**: Pre-filter low entropy images using DCT energy and audio with long silences/low complexity.
   - [ ] **Add Fingerprint Tagging**: Save metadata about media into fingerprint file for better cataloging.
   - [ ] **Removal Mechanism**: Have the ability to remove specific fingerprints if they are causing mismatches.
   - [ ] **Logging Fingerprint Match**: Log which fingerprint from which file is being matched.

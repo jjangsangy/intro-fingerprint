@@ -111,6 +111,10 @@ flowchart TD
 ### 2. Audio Fingerprinting: Constellation Hashing
 - **Extraction**: FFmpeg extracts raw PCM (`s16le`, mono, 11025Hz).
 - **Normalization**: Applies mandatory `dynaudnorm` filter (default settings) to the audio stream. This ensures consistent spectral peaks regardless of source volume or original mixing, making the algorithm volume-invariant with minimal performance overhead.
+- **Validation**: Rejects invalid audio segments to prevent false positives.
+    - **RMS Check**: Rejects silence (RMS < 0.005).
+    - **Sparsity Check**: Rejects audio with too few non-zero samples (< 10%).
+    - **Complexity Check**: Rejects fingerprints with too few hashes (< 50) to ensure sufficient data for matching.
 - **Processing**:
     - FFT:
         - **LuaJIT FFI (Primary)**: FFI-optimized Stockham Radix-4 & Mixed-Radix implementation. Provides high-performance FFT processing.

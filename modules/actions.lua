@@ -68,7 +68,20 @@ function M.save_intro()
         return
     end
 
+    local valid, reason = audio.validate_audio(res_a.stdout)
+    if not valid then
+        utils.log_info("Audio Rejected: " .. reason)
+        ui.show_message("Audio Rejected: " .. reason, 4)
+        return
+    end
+
     local hashes, count = audio.process_audio_data(res_a.stdout)
+    if count < 50 then
+        utils.log_info("Audio Rejected: Low Complexity (" .. count .. " hashes)")
+        ui.show_message("Audio Rejected: Low Complexity", 4)
+        return
+    end
+
     utils.log_info("Generated " .. count .. " audio hashes")
 
     local file_a = io.open(fp_path_a, "wb")

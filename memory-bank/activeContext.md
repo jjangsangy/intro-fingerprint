@@ -29,6 +29,7 @@ The script is in a functional and feature-complete state for its primary goal of
 - **FFmpeg Abstraction Layer**: Introduced `modules/ffmpeg.lua` to centralize FFmpeg command construction and execution. This refactor removed direct subprocess management from `actions.lua`, `video.lua`, and `utils.lua`, providing a cleaner, profile-based interface for running FFmpeg tasks.
 - **Memory Bank Synchronization**: Updated the memory bank to reflect the recent modular refactor and the addition of the FFmpeg abstraction layer.
 - **Frame Quality Rejection**: Implemented a two-stage validation system (Spatial + DCT) to reject uniform, repetitive, or featureless frames before adding them to the database.
+- **Sound Quality Rejection**: Implemented a validation step to reject silence or low-complexity audio before generating fingerprints. This includes RMS amplitude checks and signal sparsity detection to prevent false positives from quiet sections.
 
 ## Current Focus
 - User feedback and stability improvements.

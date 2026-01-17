@@ -173,6 +173,63 @@ local function generate_hashes_ffi(peaks, counts, num_frames)
     return hashes, count
 end
 
+--- Validate audio quality (RMS and signal presence)
+-- @param pcm_str string - Raw audio data (s16le)
+-- @return boolean, string - Validity status and rejection reason (if any)
+function M.validate_audio(pcm_str)
+    local rms_threshold = 0.005
+    local sparsity_threshold = 0.10
+    local sum_sq = 0
+    local non_zero_count = 0
+    local num_samples = 0
+
+    if utils.ffi_status then
+        -- FFI Path
+        num_samples = math.floor(#pcm_str / 2)
+        local ptr = utils.ffi.cast("int16_t*", pcm_str)
+        
+        for i = 0, num_samples - 1 do
+            local val = ptr[i] / 32768.0
+            sum_sq = sum_sq + (val * val)
+            if val ~= 0 then
+                non_zero_count = non_zero_count + 1
+            end
+        end
+    else
+        -- Lua Path
+        num_samples = math.floor(#pcm_str / 2)
+        for i = 1, #pcm_str, 2 do
+            local b1 = string.byte(pcm_str, i)
+            local b2 = string.byte(pcm_str, i + 1)
+            local val = b1 + b2 * 256
+            if val > 32767 then val = val - 65536 end
+            val = val / 32768.0
+            
+            sum_sq = sum_sq + (val * val)
+            if val ~= 0 then
+                non_zero_count = non_zero_count + 1
+            end
+        end
+    end
+
+    if num_samples == 0 then
+        return false, "No Audio Data"
+    end
+
+    local rms = math.sqrt(sum_sq / num_samples)
+    local signal_ratio = non_zero_count / num_samples
+
+    if rms < rms_threshold then
+        return false, "Silence Detected"
+    end
+
+    if signal_ratio < sparsity_threshold then
+        return false, "Signal Too Sparse"
+    end
+
+    return true, nil
+end
+
 --- Process raw PCM audio data into constellation hashes
 -- @param pcm_str string|cdata - Raw audio data (s16le)
 -- @return table|cdata, number - List of hashes and their count

@@ -20,6 +20,8 @@ flowchart TD
         Actions["modules:actions.lua (Handlers)"]
         Utils["modules:utils.lua (Async/FFI)"]
         State["modules:state.lua (Shared State)"]
+        Config["modules:config.lua (Options)"]
+        UI["modules:ui.lua (OSD)"]
         
         subgraph Engine [Processing Engine]
             FFT["modules:fft.lua (Algorithms)"]
@@ -36,17 +38,33 @@ flowchart TD
     %% Flow
     User -->|Triggers| KeyBinds
     KeyBinds -->|Calls| Main
+    Main -->|Uses| Config
     Main -->|Invokes| Actions
     Actions -->|Uses| Video
     Actions -->|Uses| Audio
     Actions -->|Manages| State
-    Actions -->|Spawns| Utils
+    Actions -->|Calls| UI
+    Actions -->|Uses| Utils
     Utils -->|Executes| FFmpeg
     FFmpeg -->|Data| Engine
     Engine -->|FFT/Hashing| Engine
     Actions -->|Update| Properties
     Properties -.->|Sync| MPV
 ```
+
+## Module Responsibilities
+
+| Module | Description |
+| :--- | :--- |
+| `main.lua` | Script entry point. Registers event listeners (e.g., `end-file` for cleanup) and binds user keys. |
+| `modules/config.lua` | Centralized configuration management. Defines default options and loads overrides via `mp.options`. |
+| `modules/actions.lua` | High-level business logic. Orchestrates fingerprint capture (`save_intro`) and asynchronous scanning (`skip_intro_video`, `skip_intro_audio`). |
+| `modules/utils.lua` | Common utility functions. Handles FFI loading with fallbacks, async coroutine management, subprocess execution, and path generation. |
+| `modules/ui.lua` | Simple abstraction for User Interface feedback via MPV's OSD. |
+| `modules/state.lua` | Encapsulates shared runtime state (e.g., `scanning` flag) to prevent race conditions and manage task cancellation. |
+| `modules/video.lua` | Implements video pHash calculation and segment scanning logic. |
+| `modules/audio.lua` | Implements audio constellation hashing, peak detection, and Global Offset Histogram matching. |
+| `modules/fft.lua` | Core FFT library providing both optimized Stockham (FFI) and Cooley-Tukey (Lua) implementations. |
 
 ## Key Algorithms
 

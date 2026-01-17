@@ -26,6 +26,7 @@
 ## In Progress
 - [x] Initial Memory Bank Documentation.
 - [x] Expanded troubleshooting documentation for LuaJIT support.
+- [x] **Modular Architecture Documentation**: Updated memory bank to include detailed module responsibilities and project structure.
 
 ## Future Roadmap
 - [ ] **Persistent Fingerprints**: Moving beyond temp files to a user-specified database or local directory.

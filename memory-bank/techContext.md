@@ -26,6 +26,25 @@
 - **FFmpeg Path**: FFmpeg must be executable from the command line.
 - **File System**: Requires write access to the system temp directory to store fingerprint files.
 
+## Project Structure
+The project follows a modular structure where `main.lua` orchestrates specialized logic contained within the `modules/` directory.
+
+```text
+intro-fingerprint/
+├── main.lua                # Orchestrator & entry point
+├── intro-fingerprint.conf  # Default configuration file
+├── modules/                # Core logic modules
+│   ├── actions.lua         # High-level scan/capture handlers
+│   ├── audio.lua           # Audio fingerprinting logic
+│   ├── config.lua          # Configuration & defaults
+│   ├── fft.lua             # FFT algorithms (Lua & FFI)
+│   ├── state.lua           # Shared runtime state
+│   ├── ui.lua              # OSD feedback abstraction
+│   ├── utils.lua           # Low-level async/FFI utilities
+│   └── video.lua           # Video fingerprinting logic
+└── memory-bank/            # Project documentation
+```
+
 ## Optimization Decisions
 - **pHash (32x32 -> 8x8 DCT)**: Chosen for its superior robustness and invariance to brightness/contrast changes.
 - **Audio Normalization**: Uses mandatory `dynaudnorm` (default settings) to ensure spectral consistency regardless of source volume.

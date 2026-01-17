@@ -31,7 +31,7 @@
 
 ## Future Roadmap
 - [ ] **Persistent Fingerprints**: Moving beyond temp files to a user-specified database or local directory.
-  - [ ] **Detect Bad Fingerprints**: Ensure uniform frames and audio with long silences are rejected as fingerprints.
+  - [ ] **Detect Bad Fingerprints**: Pre-filter low entropy images using DCT energy and audio with long silences.
   - [ ] **Add Fingerprint Tagging**: Save metadata about media into fingerprint file for better cataloging.
   - [ ] **Removal Mechanism**: Have the ability to remove specific fingerprints if they are causing mismatches.
   - [ ] **Logging Fingerprint Match**: Log which fingerprint from which file is being matched.

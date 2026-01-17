@@ -5,51 +5,46 @@ The script uses a modular architecture where `main.lua` acts as the orchestrator
 
 ```mermaid
 flowchart TD
-    subgraph Frontend [Frontend / User Interaction]
-        User[User]
-        KeyBinds["Key Bindings: Ctrl+i, Ctrl+s, Ctrl+Shift+s"]
+    subgraph Host [MPV Integration]
+        Input[User Input]
+        API[MPV API]
     end
 
-    subgraph Host [MPV Host]
-        MPV[MPV Core]
-        Properties["Properties: time-pos, path"]
+    subgraph Logic [Control Logic]
+        Actions[Actions Orchestrator]
     end
 
-    subgraph Backend [Backend / Modular Logic]
-        Main["main.lua (Orchestrator)"]
-        Actions["modules:actions.lua (Handlers)"]
-        Utils["modules:utils.lua (Async/FFI)"]
-        State["modules:state.lua (Shared State)"]
-        Config["modules:config.lua (Options)"]
-        UI["modules:ui.lua (OSD)"]
-        
-        subgraph Engine [Processing Engine]
-            FFT["modules:fft.lua (Algorithms)"]
-            Video["modules:video.lua (pHash)"]
-            Audio["modules:audio.lua (Constellation)"]
-        end
+    subgraph Engine [Processing Engine]
+        Audio[Audio Analysis]
+        Video[Video Analysis]
+        FFT[FFT Library]
     end
 
-    subgraph Data [External]
-        FFmpeg["FFmpeg Subprocess"]
-        FS["File System"]
+    subgraph System [System Interactions]
+        Utils[Utils Helper]
+        FFmpeg[FFmpeg Process]
+        FS[File System]
     end
 
-    %% Flow
-    User -->|Triggers| KeyBinds
-    KeyBinds -->|Calls| Main
-    Main -->|Uses| Config
-    Main -->|Invokes| Actions
-    Actions -->|Uses| Video
-    Actions -->|Uses| Audio
-    Actions -->|Manages| State
-    Actions -->|Calls| UI
-    Actions -->|Uses| Utils
-    Utils -->|Executes| FFmpeg
-    FFmpeg -->|Data| Engine
-    Engine -->|FFT/Hashing| Engine
-    Actions -->|Update| Properties
-    Properties -.->|Sync| MPV
+    %% Trigger
+    Input -->|Trigger| Actions
+
+    %% Audio Data Flow
+    Actions -- Spawn Workers --> FFmpeg
+    FFmpeg -- Raw PCM Data --> Actions
+    Actions -- Process Data --> Audio
+    Audio -.->|Use| FFT
+
+    %% Video Data Flow
+    Actions -- Delegate Scan --> Video
+    Video -- Async Wrapper --> Utils
+    Utils -- Spawn Process --> FFmpeg
+    FFmpeg -- Raw Video Frames --> Video
+    Video -.->|Use| FFT
+
+    %% Persistence & Effect
+    Actions -- Save/Load Fingerprints --> FS
+    Actions -- Seek Time --> API
 ```
 
 ## Module Responsibilities

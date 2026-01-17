@@ -17,3 +17,23 @@
 ## Paths & Compatibility
 - **Path Handling**: Use `mp.utils.join_path` for file system operations.
 - **Dependencies**: Gracefully handle missing dependencies (e.g., `ffmpeg`, `ffi`, `bit`) by checking their presence at startup and warning the user via `msg.warn`.
+
+## Documentation Standards
+All functions in mpv Lua scripts MUST include LuaDoc-style documentation using the following format:
+
+```lua
+--- Brief description of what the function does in the context of mpv
+-- Additional details about mpv-specific behavior if needed
+-- @param param_name type - description
+-- @return type - description of return value
+-- @note Any important implementation details or mpv API calls used (e.g., mp.set_property)
+-- @note Side effects: (e.g., OSD messages, property changes, event triggers)
+function my_function(param_name)
+    -- implementation
+end
+```
+
+Additionally, scripts MUST include:
+- A top-level file header describing the overall purpose of the script.
+- Documentation for global variables using `--- @var name type - description` or `--- @table name - description`.
+- Documentation for key bindings (`mp.add_key_binding`) and property observers (`mp.observe_property`) describing their triggers and effects.

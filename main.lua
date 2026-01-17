@@ -1,4 +1,16 @@
--- Configuration
+--- Intro Fingerprint: Video & Audio Intro Skipper for mpv
+-- This script provides functionality to capture and skip intros by fingerprinting
+-- video frames (pHash) and audio segments (Constellation Hashing).
+-- It supports both standard Lua and LuaJIT (FFI) for performance.
+--
+-- Key features:
+-- - Perceptual Hashing (pHash) for video-based intro detection.
+-- - Constellation Hashing for audio-based intro detection.
+-- - Asynchronous scanning using mpv coroutines and subprocesses.
+-- - Gradient-based early stopping for efficient audio scanning.
+
+--- @table options Configuration options for the intro skipper
+-- These can be overridden in intro-fingerprint.conf or via --script-opts=intro-fingerprint-<key>=<value>
 local options = {
     -- Toggle console debug printing (Performance stats, scan info)
     debug = "no",
@@ -38,10 +50,14 @@ local mp = require 'mp'
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 
+--- Load configuration from file
+-- @note Uses mp.options.read_options()
 require('mp.options').read_options(options, 'intro-fingerprint')
 
 -- Attempt to load FFI (LuaJIT only) and Bit library
+--- @var ffi_status boolean - True if LuaJIT ffi library is loaded
 local ffi_status, ffi = pcall(require, "ffi")
+--- @var bit_status boolean - True if bitwise operations library is loaded
 local bit_status, bit = pcall(require, "bit")
 
 if not ffi_status then
@@ -52,25 +68,59 @@ if not bit_status then
 end
 
 -- Global scanning state to prevent race conditions
+--- @var scanning boolean - Whether a scan is currently in progress
 local scanning = false
+--- @var current_scan_token number|nil - The token for the active async command
 local current_scan_token = nil
 
 -- Constants for fallback bitwise operations
-local MASK_9 = 512       -- 2^9
-local MASK_14 = 16384    -- 2^14
-local SHIFT_14 = 16384   -- 2^14
-local SHIFT_23 = 8388608 -- 2^23
+--- @var MASK_9 number - Bitmask for 9 bits (512)
+local MASK_9 = 512
+--- @var MASK_14 number - Bitmask for 14 bits (16384)
+local MASK_14 = 16384
+--- @var SHIFT_14 number - Bitwise shift constant for 14 bits
+local SHIFT_14 = 16384
+--- @var SHIFT_23 number - Bitwise shift constant for 23 bits
+local SHIFT_23 = 8388608
 
--- Frame size in bytes (32 * 32 = 1024 bytes)
+--- @var VIDEO_FRAME_SIZE number - Expected size of a grayscale video frame in bytes
 local VIDEO_FRAME_SIZE = options.video_phash_size * options.video_phash_size
 
--- Helper for debug logging
+--- @table POPCOUNT_TABLE lookup table for bit population count (0-255)
+local POPCOUNT_TABLE = {}
+for i = 0, 255 do
+    local c = 0
+    local n = i
+    while n > 0 do
+        if n % 2 == 1 then c = c + 1 end
+        n = math.floor(n / 2)
+    end
+    POPCOUNT_TABLE[i] = c
+end
+
+if ffi_status then
+    --- Define C structures for FFT and Fingerprinting
+    -- @note Uses ffi.cdef
+    ffi.cdef [[
+        typedef unsigned char uint8_t;
+        typedef struct { double r; double i; } complex_t;
+        typedef int16_t int16;
+        typedef struct { uint32_t h; uint32_t t; } hash_entry;
+    ]]
+end
+
+--- Log debug information if debug mode is enabled
+-- @param str string - The message to log
+-- @note Uses mp.msg.info
 local function log_info(str)
     if options.debug == "yes" then
         msg.info(str)
     end
 end
 
+--- Abort the current scan and cleanup state
+-- @note Registered to 'end-file' event via mp.register_event()
+-- @note Uses mp.abort_async_command() to terminate active subprocesses
 local function abort_scan()
     if current_scan_token then
         mp.abort_async_command(current_scan_token)
@@ -80,8 +130,13 @@ local function abort_scan()
     log_info("Scan aborted.")
 end
 
+--- Event observer for 'end-file' to ensure cleanup on file change
+-- Ensures that scans are aborted if the user switches files while a scan is running.
 mp.register_event("end-file", abort_scan)
 
+--- Run a function in a coroutine for async execution
+-- @param func function - The function to run in a coroutine
+-- @note Essential for non-blocking UI during long-running scans
 local function run_async(func)
     local co = coroutine.create(func)
     local function resume(...)
@@ -94,6 +149,11 @@ local function run_async(func)
     resume()
 end
 
+--- Execute a subprocess asynchronously within a coroutine
+-- @param t table - Table containing 'args' for the subprocess
+-- @return table - The result table containing status, stdout, stderr
+-- @note Uses mp.command_native_async() and yields the coroutine
+-- @note Falls back to utils.subprocess() if not running in a coroutine
 local function async_subprocess(t)
     local co = coroutine.running()
     if not co then return utils.subprocess(t) end
@@ -118,48 +178,17 @@ local function async_subprocess(t)
     return result
 end
 
--- Pre-calculate bit population count lookup table (0-255)
-local POPCOUNT_TABLE = {}
-for i = 0, 255 do
-    local c = 0
-    local n = i
-    while n > 0 do
-        if n % 2 == 1 then c = c + 1 end
-        n = math.floor(n / 2)
-    end
-    POPCOUNT_TABLE[i] = c
-end
-
-if ffi_status then
-    ffi.cdef [[
-        typedef unsigned char uint8_t;
-        typedef struct { double r; double i; } complex_t;
-        typedef int16_t int16;
-        typedef struct { uint32_t h; uint32_t t; } hash_entry;
-    ]]
-end
-
-local function get_temp_dir()
-    return os.getenv("TEMP") or os.getenv("TMP") or os.getenv("TMPDIR") or "/tmp"
-end
-
-local function get_video_fingerprint_path()
-    local temp_dir = get_temp_dir()
-    return utils.join_path(temp_dir, options.video_temp_filename)
-end
-
-local function get_audio_fingerprint_path()
-    local temp_dir = get_temp_dir()
-    return utils.join_path(temp_dir, options.audio_temp_filename)
-end
-
 -- ==========================================
 -- VIDEO ALGORITHM: pHash (DCT-based)
 -- ==========================================
 
 -- FFT Helpers for both Video & Audio
+--- @table lua_fft_caches Cache for FFT twiddle factors, bit-reversal tables, and window functions
 local lua_fft_caches = {}
 
+--- Initialize FFT cache for a given size
+-- @param n number - FFT size (must be power of 2)
+-- @note Pre-calculates trig tables and bit-reversal indices to avoid GC overhead
 local function init_lua_fft_cache(n)
     if lua_fft_caches[n] then return end
 
@@ -203,6 +232,11 @@ local function init_lua_fft_cache(n)
     }
 end
 
+--- Perform optimized Cooley-Tukey FFT in pure Lua
+-- @param real table - Real part of the input/output array (modified in-place)
+-- @param imag table - Imaginary part of the input/output array (modified in-place)
+-- @param n number - FFT size
+-- @note Implementation uses pre-allocated caches and avoids trigonometric calls in the loop
 local function fft_lua_optimized(real, imag, n)
     local cache = lua_fft_caches[n]
     if not cache then
@@ -242,8 +276,12 @@ local function fft_lua_optimized(real, imag, n)
     end
 end
 
+--- @table twiddles_cache Cache for FFI-based twiddle factors
 local twiddles_cache = {}
 
+--- Get or create FFI twiddle factors for FFT
+-- @param n number - FFT size
+-- @return cdata, cdata - Real and Imaginary twiddle factor arrays
 local function get_twiddles(n)
     if twiddles_cache[n] then
         return twiddles_cache[n].re, twiddles_cache[n].im
@@ -261,6 +299,13 @@ local function get_twiddles(n)
     return re, im
 end
 
+--- Perform Stockham auto-sort FFT (FFI-based)
+-- @param re cdata - Real part array (modified in-place)
+-- @param im cdata - Imaginary part array (modified in-place)
+-- @param y_re cdata - Work array for real part
+-- @param y_im cdata - Work array for imaginary part
+-- @param n number - FFT size
+-- @note High-performance FFT implementation using LuaJIT FFI and Stockham algorithm
 local function fft_stockham(re, im, y_re, y_im, n)
     local t_re, t_im = get_twiddles(n)
 
@@ -400,7 +445,13 @@ local function fft_stockham(re, im, y_re, y_im, n)
     end
 end
 
--- DCT-II IMPLEMENTATION (Makhoul's)
+--- Perform 1D DCT-II using Makhoul's reordering and FFT
+-- @param input_ptr cdata - Input data array
+-- @param n number - Size of the DCT
+-- @param output_ptr cdata - Output data array (modified in-place)
+-- @param method string - FFT method to use ("lua" or "stockham")
+-- @param ctx table - Context containing temporary buffers
+-- @note Used as the basis for the pHash calculation
 local function dct_1d_makhoul_ffi(input_ptr, n, output_ptr, method, ctx)
     local real = ctx.real
     local imag = ctx.imag
@@ -446,10 +497,10 @@ local function dct_1d_makhoul_ffi(input_ptr, n, output_ptr, method, ctx)
     end
 end
 
-
+--- @table phash_ctx_cache_ffi Cache for FFI-based pHash context
 local phash_ctx_cache_ffi = {}
 
--- Optimized Pure Lua Context
+--- @table phash_lua_context Context and buffers for pure Lua pHash implementation
 local phash_lua_context = {
     dct_matrix = nil,
     row_temp = {},
@@ -457,6 +508,8 @@ local phash_lua_context = {
     values_flat = {}
 }
 
+--- Initialize the DCT matrix for pure Lua pHash
+-- @note Uses matrix multiplication for Partial Direct DCT to improve performance in non-FFI environments
 local function init_phash_lua_dct_matrix()
     if phash_lua_context.dct_matrix then return end
     local matrix = {}
@@ -480,6 +533,11 @@ local function init_phash_lua_dct_matrix()
     for i = 1, 64 do phash_lua_context.values_flat[i] = 0 end
 end
 
+--- Compute a 32x32 pHash using FFI
+-- @param bytes_ptr cdata - Pointer to raw grayscale image data
+-- @param start_index number - Offset in the buffer to start reading
+-- @return table - 8-byte hash as an array of numbers
+-- @note Performs 2D DCT and extracts low-frequency coefficients to generate a 64-bit hash
 local function compute_phash_32_ffi(bytes_ptr, start_index)
     local n = 32
     local data = ffi.new("double[1024]")
@@ -546,6 +604,11 @@ local function compute_phash_32_ffi(bytes_ptr, start_index)
     return hash
 end
 
+--- Compute a 32x32 pHash using pure Lua
+-- @param bytes string - Raw grayscale image data
+-- @param start_index number - Offset in the string to start reading
+-- @return table - 8-byte hash as an array of numbers
+-- @note Uses Partial Direct DCT for performance without LuaJIT FFI
 local function compute_phash_32_lua(bytes, start_index)
     init_phash_lua_dct_matrix()
     local ctx = phash_lua_context
@@ -606,6 +669,11 @@ local function compute_phash_32_lua(bytes, start_index)
     return hash
 end
 
+--- Calculate Hamming distance between two 64-bit hashes
+-- @param hash1 table - First hash (array of 8 bytes)
+-- @param hash2 table - Second hash (array of 8 bytes)
+-- @return number - Hamming distance (0-64)
+-- @note Lower distance indicates higher similarity
 local function video_hamming_distance(hash1, hash2)
     local dist = 0
     for i = 1, 8 do
@@ -632,6 +700,37 @@ local function video_hamming_distance(hash1, hash2)
     return dist
 end
 
+--- Get the system temporary directory
+-- @return string - Path to the temp directory
+local function get_temp_dir()
+    return os.getenv("TEMP") or os.getenv("TMP") or os.getenv("TMPDIR") or "/tmp"
+end
+
+--- Get the full path for the video fingerprint file
+-- @return string - Full path to the video fingerprint file
+-- @note Uses mp.utils.join_path()
+local function get_video_fingerprint_path()
+    local temp_dir = get_temp_dir()
+    return utils.join_path(temp_dir, options.video_temp_filename)
+end
+
+--- Get the full path for the audio fingerprint file
+-- @return string - Full path to the audio fingerprint file
+-- @note Uses mp.utils.join_path()
+local function get_audio_fingerprint_path()
+    local temp_dir = get_temp_dir()
+    return utils.join_path(temp_dir, options.audio_temp_filename)
+end
+
+--- Scan a segment of video for a matching pHash
+-- @param start_time number - Start timestamp in the video
+-- @param duration number - Duration of the segment to scan
+-- @param video_path string - Path to the video file
+-- @param target_raw_bytes string|cdata - The reference pHash frame data
+-- @param stats table|nil - Table to collect performance statistics
+-- @return number|nil, number|nil - Best Hamming distance and its timestamp
+-- @note Spawns ffmpeg to extract raw frames and computes pHash for each
+-- @note Implementation uses early exit based on threshold and miss count
 local function scan_video_segment(start_time, duration, video_path, target_raw_bytes, stats)
     if duration <= 0 then return nil, nil end
 
@@ -730,10 +829,12 @@ end
 -- AUDIO ALGORITHM: CONSTELLATION HASHING
 -- ==========================================
 
--- Extract peaks from magnitude spectrum
+--- Extract peaks from magnitude spectrum
+-- @param magnitudes table - Array of magnitudes for each frequency bin
+-- @param freq_bin_count number - Number of frequency bins
+-- @return table - List of indices for the top frequency peaks
+-- @note Limits peaks to 5 per frame to maintain fingerprint density and performance
 local function get_peaks(magnitudes, freq_bin_count)
-    -- Divide into bands to ensure spread (optional, but good for robustness)
-    -- We'll just take local maxima above threshold
     local peaks = {}
     local threshold = options.audio_threshold
 
@@ -744,8 +845,7 @@ local function get_peaks(magnitudes, freq_bin_count)
             table.insert(peaks, i)
         end
     end
-    -- Sort peaks by magnitude? Optional. We just take them.
-    -- Limit number of peaks per frame to avoid noise
+
     if #peaks <= 5 then return peaks end
 
     -- Keep top 5
@@ -761,8 +861,10 @@ local function get_peaks(magnitudes, freq_bin_count)
     return peaks
 end
 
--- Generate hashes from spectrogram peaks
--- spectrogram: array of frames, each frame is list of peak freq indices
+--- Generate hashes from spectrogram peaks
+-- @param spectrogram table - Array of frames, each containing a list of peak frequency indices
+-- @return table - List of generated hashes with their relative time offsets
+-- @note Combines pairs of peaks within a target time window into a single 32-bit hash
 local function generate_hashes(spectrogram)
     local hashes = {} -- list of {hash, time_offset}
 
@@ -782,8 +884,6 @@ local function generate_hashes(spectrogram)
                             bit.band(dt, 0x3FFF)
                         )
                     else
-                        -- Arithmetic fallback: (f1 % 512) << 23 | (f2 % 512) << 14 | (dt % 16384)
-                        -- Since fields do not overlap, OR is equivalent to ADD.
                         h = (f1 % MASK_9) * SHIFT_23 +
                             (f2 % MASK_9) * SHIFT_14 +
                             (dt % MASK_14)
@@ -797,9 +897,13 @@ local function generate_hashes(spectrogram)
 end
 
 
--- FFI version of get_peaks
--- Writes up to 5 peaks into row_ptr[0..4]
--- Returns number of peaks found
+--- FFI version of get_peaks
+-- @param mags cdata - Pointer to magnitude array
+-- @param row_ptr cdata - Pointer to the destination row in the flattened peaks array
+-- @param freq_bin_count number - Number of frequency bins
+-- @param threshold number - Magnitude threshold for peak detection
+-- @return number - Number of peaks found (up to 5)
+-- @note Uses insertion sort to find the top 5 peaks efficiently in C-land
 local function get_peaks_ffi(mags, row_ptr, freq_bin_count, threshold)
     local count = 0
 
@@ -835,6 +939,12 @@ local function get_peaks_ffi(mags, row_ptr, freq_bin_count, threshold)
     return count
 end
 
+--- Generate hashes from peaks using FFI
+-- @param peaks cdata - Flattened int16_t array of peaks
+-- @param counts cdata - Array of peak counts per frame
+-- @param num_frames number - Total number of frames in the segment
+-- @return cdata, number - Array of hash_entry structures and the total count
+-- @note High-performance hash generation avoiding Lua object allocation
 local function generate_hashes_ffi(peaks, counts, num_frames)
     -- Estimate max hashes: 5 peaks * 90 window * 5 peaks * num_frames
     local max_hashes = num_frames * 2250
@@ -881,7 +991,11 @@ local function generate_hashes_ffi(peaks, counts, num_frames)
     return hashes, count
 end
 
--- Process PCM data to hashes
+--- Process raw PCM audio data into constellation hashes
+-- @param pcm_str string|cdata - Raw audio data (s16le)
+-- @return table|cdata, number - List of hashes and their count
+-- @note Automatically chooses between pure Lua and FFI implementations based on availability
+-- @note Applies Hann windowing and performs FFT-based spectrogram analysis
 local function process_audio_data(pcm_str)
     local fft_size = options.audio_fft_size
     local hop_size = options.audio_hop_size
@@ -992,7 +1106,10 @@ end
 -- MAIN FUNCTIONS
 -- ==========================================
 
--- 1. SAVE FINGERPRINT (VIDEO + AUDIO)
+--- Capture and save the current video frame and preceding audio as an intro fingerprint
+-- @note Triggers OSD messages for user feedback
+-- @note Spawns two sync subprocesses (ffmpeg) to extract video and audio data
+-- @note Saves fingerprints to the system temp directory
 local function save_intro()
     local path = mp.get_property("path")
     local time_pos = mp.get_property_number("time-pos")
@@ -1085,7 +1202,11 @@ local function save_intro()
     mp.osd_message("Intro Captured! (Video + Audio)", 2)
 end
 
--- 2. SKIP INTRO (VIDEO)
+--- Scan the current video for a match using video pHash and skip if found
+-- @note Runs asynchronously in a coroutine
+-- @note Uses OSD messages to display progress and results
+-- @note Expands the search window outwards from the saved timestamp until a match is found or limit reached
+-- @note Modifies mpv property 'time-pos' on successful match
 local function skip_intro_video()
     if scanning then
         mp.osd_message("Scan in progress...", 2)
@@ -1123,6 +1244,8 @@ local function skip_intro_video()
         local perf_stats = { ffmpeg = 0, lua = 0, frames = 0 }
         local scan_start_time = mp.get_time()
 
+        --- Cleanup state and display results after a video scan
+        -- @param message string|nil - Optional message to display via OSD
         local function finish_scan(message)
             scanning = false
 
@@ -1210,7 +1333,12 @@ local function skip_intro_video()
     end)
 end
 
--- 3. SKIP INTRO (AUDIO)
+--- Scan the current audio for a match using Constellation Hashing and skip if found
+-- @note Runs asynchronously in a coroutine with concurrent FFmpeg workers
+-- @note Uses a Global Offset Histogram to identify the most likely match point
+-- @note Implements gradient-based early stopping to terminate scans when match strength declines
+-- @note Modifies mpv property 'time-pos' on successful match
+-- @note Provides real-time OSD progress updates
 local function skip_intro_audio()
     if scanning then
         mp.osd_message("Scan in progress...", 2)
@@ -1264,6 +1392,8 @@ local function skip_intro_audio()
         local perf_stats = { ffmpeg = 0, lua = 0 }
         local scan_start_time = mp.get_time()
 
+        --- Cleanup state and display results after an audio scan
+        -- @param message string|nil - Optional message to display via OSD
         local function finish_scan(message)
             scanning = false
             local total_dur = mp.get_time() - scan_start_time
@@ -1290,6 +1420,11 @@ local function skip_intro_audio()
         -- Padding: enough to cover audio_target_t_max plus FFT window overhead.
         local padding = math.ceil(options.audio_target_t_max * options.audio_hop_size / options.audio_sample_rate) + 1.0
 
+        --- Process a single hash match and update histograms
+        -- @param h number - The hash value
+        -- @param t number - Time index of the hash in the current segment
+        -- @param target_time number - Start timestamp of the current segment
+        -- @param local_histogram table - Histogram for the current segment
         local function process_hash_match(h, t, target_time, local_histogram)
             local rel_time = t * factor
             -- Filter: Ignore hashes that belong to the next segment's padding overlap
@@ -1320,6 +1455,9 @@ local function skip_intro_audio()
 
         local co = coroutine.running()
 
+        --- Spawn an asynchronous worker to process a segment of audio
+        -- @param scan_time number - Start timestamp for the segment
+        -- @note Uses mp.command_native_async to run FFmpeg and processes results in a callback
         local function spawn_worker(scan_time)
             active_workers = active_workers + 1
             local args = {
@@ -1449,6 +1587,9 @@ local function skip_intro_audio()
     end)
 end
 
+--- Register Key Bindings for script functionality
+-- @note Uses mp.add_key_binding()
+-- @note Commands: save-intro, skip-intro-video, skip-intro-audio
 mp.add_key_binding(options.key_save_intro, "save-intro", save_intro)
 mp.add_key_binding(options.key_skip_video, "skip-intro-video", skip_intro_video)
 mp.add_key_binding(options.key_skip_audio, "skip-intro-audio", skip_intro_audio)

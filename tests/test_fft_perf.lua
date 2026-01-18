@@ -22,6 +22,7 @@ function TestFFTPerf:test_perf_comparison()
     -- Use a reasonably large N to amortize overhead
     local n = 2048
     local iterations = 50
+    local runs = 5
 
     -- 1. Setup local FFT (cache warmup)
     fft.init_lua_fft_cache(n)
@@ -36,44 +37,54 @@ function TestFFTPerf:test_perf_comparison()
     local input = {}
     for i = 1, n do input[i] = math.random() end
 
-    -- Measure Local FFT
-    -- We NO LONGER include scrambling time because the new implementation (Stockham) expects natural order input
-    local start_time = os.clock()
-    for _ = 1, iterations do
-        -- Copy Input (Natural Order)
-        for i = 1, n do
-            real_buf[i] = input[i]
-            imag_buf[i] = 0
-        end
-        -- Compute
-        fft.fft_lua_optimized(real_buf, imag_buf, n)
-    end
-    local local_duration = os.clock() - start_time
-
-    -- Measure ZFFT
+    -- Pre-allocate ZFFT buffers
     local z_input_re = {}
     local z_input_im = {}
-    -- Pre-allocate
     for i = 1, n do z_input_re[i] = 0; z_input_im[i] = 0 end
 
-    local z_start_time = os.clock()
-    for _ = 1, iterations do
-        -- Fill input
-        for i = 1, n do
-            z_input_re[i] = input[i]
-            z_input_im[i] = 0
+    local total_local_duration = 0
+    local total_z_duration = 0
+
+    print(string.format("\nPerformance Test (N=%d, Iter=%d, Runs=%d):", n, iterations, runs))
+
+    for r = 1, runs do
+        -- Measure Local FFT
+        -- We NO LONGER include scrambling time because the new implementation (Stockham) expects natural order input
+        local start_time = os.clock()
+        for _ = 1, iterations do
+            -- Copy Input (Natural Order)
+            for i = 1, n do
+                real_buf[i] = input[i]
+                imag_buf[i] = 0
+            end
+            -- Compute
+            fft.fft_lua_optimized(real_buf, imag_buf, n)
         end
-        -- Compute
-        zfft.fft(z_input_re, z_input_im)
+        local local_duration = os.clock() - start_time
+        total_local_duration = total_local_duration + local_duration
+
+        -- Measure ZFFT
+        local z_start_time = os.clock()
+        for _ = 1, iterations do
+            -- Fill input
+            for i = 1, n do
+                z_input_re[i] = input[i]
+                z_input_im[i] = 0
+            end
+            -- Compute
+            zfft.fft(z_input_re, z_input_im)
+        end
+        local z_duration = os.clock() - z_start_time
+        total_z_duration = total_z_duration + z_duration
     end
-    local z_duration = os.clock() - z_start_time
 
-    local speedup = z_duration / local_duration
+    local avg_local = total_local_duration / runs
+    local avg_z = total_z_duration / runs
+    local speedup = avg_z / avg_local
 
-    print(string.format("\nPerformance Test (N=%d, Iter=%d):", n, iterations))
-    print(string.format("Local FFT: %.4fs", local_duration))
-    print(string.format("ZFFT:      %.4fs", z_duration))
-    print(string.format("Speedup:   %.2fx", speedup))
+    print(string.format("Avg Local FFT: %.4fs", avg_local))
+    print(string.format("Avg ZFFT:      %.4fs", avg_z))
+    print(string.format("Avg Speedup:   %.2fx", speedup))
 
     -- Threshold: Ensure local implementation is faster than ZFFT
     -- (Local uses cached twiddles and optimized arithmetic, ZFFT computes twiddles every time)

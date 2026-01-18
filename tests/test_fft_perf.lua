@@ -75,11 +75,18 @@ function TestFFTPerf:test_perf_comparison()
     print(string.format("ZFFT:      %.4fs", z_duration))
     print(string.format("Speedup:   %.2fx", speedup))
 
-    -- Threshold: Ensure local implementation is at least 2.0x faster than ZFFT
+    -- Threshold: Ensure local implementation is faster than ZFFT
     -- (Local uses cached twiddles and optimized arithmetic, ZFFT computes twiddles every time)
     -- We set a conservative threshold to catch major regressions without flakiness.
     -- Based on expected performance difference due to caching.
-    local threshold = 2.0
+    local is_jit = type(jit) == 'table'
+    local threshold = is_jit and 5.0 or 2.0
+    
+    if is_jit then
+        print(string.format("Running on LuaJIT: Using stricter threshold %.1fx", threshold))
+    else
+        print(string.format("Running on Lua: Using standard threshold %.1fx", threshold))
+    end
 
     lu.assertIsTrue(speedup > threshold,
         string.format("Performance regression: Speedup %.2fx is below threshold %.1fx", speedup, threshold))

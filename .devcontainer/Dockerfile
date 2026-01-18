@@ -26,6 +26,7 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
         libgl1-mesa-dev \
         libgl1-mesa-dri \
         libharfbuzz-dev \
+        liblua5.1-0-dev \
         libluajit-5.1-dev \
         libplacebo-dev \
         libswresample-dev \
@@ -42,6 +43,7 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
         libxrandr-dev \
         libxrender-dev \
         libxv-dev \
+        lua5.1 \
         luajit \
         mesa-utils \
         meson \

@@ -1,2 +1,3 @@
 videos
 tests/luaunit.lua
+tests/zfft.lua

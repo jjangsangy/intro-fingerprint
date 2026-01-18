@@ -16,6 +16,7 @@
 - [x] **FFI Optimization**: Zero-allocation (or low-allocation) paths for data-intensive operations.
 - [x] **Standard Lua Optimization**: Significant performance gains for non-LuaJIT environments:
     - ~2.5x speedup for audio (FFT optimization).
+    - Reduced function call overhead in audio pipeline (Pure Lua).
     - ~4x speedup for video (Partial Direct DCT pHash optimization).
 - [x] **FFT Implementation**: Reverted to optimized internal Lua/FFI implementation as it outperformed PocketFFT.
 - [x] **DevContainer**: VS Code DevContainer for Ubuntu 24.04 with a custom-built `mpv-luajit` (v0.38.0) environment. Supports both X11 and Wayland (`wlshm`) video outputs for compatibility with WSLg.

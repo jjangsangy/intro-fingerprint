@@ -5,31 +5,29 @@
 -- Assuming this script is run from project root: lua tests/run_tests.lua
 package.path = package.path .. ";./?.lua;./?/init.lua"
 
--- 2. Setup Testing Framework (Before loading tests)
-local function ensure_luaunit()
-    local luaunit_path = "tests/luaunit.lua"
-    local f = io.open(luaunit_path, "r")
+-- 2. Setup Testing Framework and Dependencies (Before loading tests)
+local function download_file(path, url)
+    local f = io.open(path, "r")
     if f ~= nil then
         io.close(f)
         return
     end
 
-    print("luaunit.lua not found. Downloading...")
-    local url = "https://raw.githubusercontent.com/bluebird75/luaunit/master/luaunit.lua"
-
+    print("File " .. path .. " not found. Downloading...")
+    
     local success = false
     local ret
 
     -- 1. Try curl
     if not success then
-        local cmd = "curl -L -o " .. luaunit_path .. " " .. url
+        local cmd = "curl -L -o " .. path .. " " .. url
         ret = os.execute(cmd)
         if ret == 0 or ret == true then success = true end
     end
 
     -- 2. Try wget
     if not success then
-         local cmd = "wget -O " .. luaunit_path .. " " .. url
+         local cmd = "wget -O " .. path .. " " .. url
          ret = os.execute(cmd)
          if ret == 0 or ret == true then success = true end
     end
@@ -37,20 +35,28 @@ local function ensure_luaunit()
     -- 3. Try PowerShell (Windows fallback)
     if not success then
         -- PowerShell might not be in PATH on non-Windows, or might be pwsh
-        local cmd = 'powershell -Command "Invoke-WebRequest -Uri \'' .. url .. '\' -OutFile \'' .. luaunit_path .. '\'"'
+        local cmd = 'powershell -Command "Invoke-WebRequest -Uri \'' .. url .. '\' -OutFile \'' .. path .. '\'"'
         ret = os.execute(cmd)
         if ret == 0 or ret == true then success = true end
     end
 
     if not success then
-         print("Error: Failed to download luaunit.lua. Please download it manually from:")
+         print("Error: Failed to download " .. path .. ". Please download it manually from:")
          print(url)
-         print("and place it in " .. luaunit_path)
+         print("and place it in " .. path)
          os.exit(1)
     end
 end
 
-ensure_luaunit()
+local function setup_dependencies()
+    -- Ensure luaunit
+    download_file("tests/luaunit.lua", "https://raw.githubusercontent.com/bluebird75/luaunit/master/luaunit.lua")
+
+    -- Ensure zfft (reference implementation for perf tests)
+    download_file("tests/zfft.lua", "https://raw.githubusercontent.com/zorggn/zorg-fft/refs/heads/master/src/lua/zfft.lua")
+end
+
+setup_dependencies()
 
 -- 3. Setup Mocks
 local mocks = require('tests.mocks')
@@ -73,6 +79,7 @@ require('tests.test_ui')
 require('tests.test_state')
 require('tests.test_actions')
 require('tests.test_fingerprint_io')
+require('tests.test_fft_perf')
 
 -- 5. Run Tests
 local lu = require('tests.luaunit')

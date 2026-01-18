@@ -11,36 +11,40 @@ local MASK_14 = 16384
 local SHIFT_14 = 16384
 local SHIFT_23 = 8388608
 
---- Extract peaks from magnitude spectrum
--- @param magnitudes table - Array of magnitudes for each frequency bin
+--- Extract peaks from magnitude spectrum (Squared Magnitudes)
+-- @param magnitudes table - Array of squared magnitudes for each frequency bin
 -- @param freq_bin_count number - Number of frequency bins
+-- @param threshold_sq number - Squared magnitude threshold
 -- @return table - List of indices for the top frequency peaks
 -- @note Limits peaks to 5 per frame to maintain fingerprint density and performance
-local function get_peaks(magnitudes, freq_bin_count)
+local function get_peaks(magnitudes, freq_bin_count, threshold_sq)
     local peaks = {}
-    local threshold = config.options.audio_threshold
+    local p_count = 0
 
     for i = 2, freq_bin_count - 1 do
         local m = magnitudes[i]
-        if m > threshold and m > magnitudes[i - 1] and m > magnitudes[i + 1] then
+        if m > threshold_sq and m > magnitudes[i - 1] and m > magnitudes[i + 1] then
             -- Store peak: frequency index
-            table.insert(peaks, i)
+            p_count = p_count + 1
+            peaks[p_count] = i
         end
     end
 
-    if #peaks <= 5 then return peaks end
+    if p_count <= 5 then return peaks end
 
     -- Keep top 5
     local sorted = {}
-    for _, p in ipairs(peaks) do
-        table.insert(sorted, { idx = p, mag = magnitudes[p] })
+    for i = 1, p_count do
+        local p = peaks[i]
+        sorted[i] = { idx = p, mag = magnitudes[p] }
     end
     table.sort(sorted, function(a, b) return a.mag > b.mag end)
-    peaks = {}
+    
+    local top_peaks = {}
     for i = 1, 5 do
-        table.insert(peaks, sorted[i].idx)
+        top_peaks[i] = sorted[i].idx
     end
-    return peaks
+    return top_peaks
 end
 
 --- Generate hashes from spectrogram peaks
@@ -243,16 +247,19 @@ function M.process_audio_data(pcm_str)
     if not utils.ffi_status then
         local spectrogram = {}
         local samples = {}
-        -- Convert s16le string to samples
-        for i = 1, #pcm_str, 2 do
-            local b1 = string.byte(pcm_str, i)
-            local b2 = string.byte(pcm_str, i + 1)
+        local num_samples_raw = math.floor(#pcm_str / 2)
+        
+        -- Convert s16le string to samples (Direct Indexing)
+        for i = 0, num_samples_raw - 1 do
+            local base = i * 2 + 1
+            local b1 = string.byte(pcm_str, base)
+            local b2 = string.byte(pcm_str, base + 1)
             local val = b1 + b2 * 256
             if val > 32767 then val = val - 65536 end
-            table.insert(samples, val / 32768.0)
+            samples[i + 1] = val / 32768.0
         end
 
-        local num_samples = #samples
+        local num_samples = num_samples_raw
         local cache = fft.get_lua_fft_cache(fft_size)
         if not cache then
             mp.msg.error("FFT cache not initialized")
@@ -262,6 +269,9 @@ function M.process_audio_data(pcm_str)
         local hann = cache.hann
         local real_buf = {}
         local imag_buf = {}
+        
+        local threshold_sq = config.options.audio_threshold * config.options.audio_threshold
+        local spec_count = 0
 
         for i = 1, num_samples - fft_size + 1, hop_size do
             -- Scramble into buffer while applying Hann window
@@ -275,11 +285,13 @@ function M.process_audio_data(pcm_str)
 
             local mags = {}
             for k = 1, fft_size / 2 do
-                mags[k] = math.sqrt(real_buf[k] ^ 2 + imag_buf[k] ^ 2)
+                -- Use squared magnitude to avoid math.sqrt calls
+                mags[k] = real_buf[k] ^ 2 + imag_buf[k] ^ 2
             end
 
-            local peaks = get_peaks(mags, fft_size / 2)
-            table.insert(spectrogram, peaks)
+            local peaks = get_peaks(mags, fft_size / 2, threshold_sq)
+            spec_count = spec_count + 1
+            spectrogram[spec_count] = peaks
         end
 
         local hashes = generate_hashes(spectrogram)

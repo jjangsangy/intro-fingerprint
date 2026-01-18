@@ -1,17 +1,17 @@
 {
+    "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
     "runtime": {
-        "version": "LuaJIT"
-    },
-    "diagnostics": {
-        "globals": [
-            "mp",
-            "msg",
-            "print",
-            "dump"
-        ]
+        "version": "Lua 5.1",
+        "path": [
+            "?.lua",
+            "?/init.lua"
+        ],
+        "pathStrict": true
     },
     "workspace": {
-        "library": [],
         "checkThirdParty": false
+    },
+    "diagnostics": {
+        "globals": ["mp", "print", "jit"]
     }
 }

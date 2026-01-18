@@ -25,11 +25,11 @@
 - [x] **Lua Modules & Standards**: Successfully refactored the project into a modular directory structure under `modules/`. Consolidated all architectural standards and coding best practices into `.clinerules/mpv-lua-practices.md` for consistent project enforcement.
 - [x] **Frame Quality Rejection**: Implemented a two-stage validation system (Spatial + DCT) to reject low-quality frames.
 - [x] **Sound Quality Rejection**: Added RMS and sparsity validation for audio fingerprints, plus "low complexity" rejection for samples with too few hashes.
+- [x] **Comprehensive Test Suite**: Implemented a full test suite covering audio/video processing, FFI/Lua FFT paths, FFmpeg command construction, and configuration, including a custom test runner with mocking support.
+- [x] **Modular Architecture Documentation**: Updated memory bank to include detailed module responsibilities and project structure.
 
 ## In Progress
-- [x] Initial Memory Bank Documentation.
-- [x] Expanded troubleshooting documentation for LuaJIT support.
-- [x] **Modular Architecture Documentation**: Updated memory bank to include detailed module responsibilities and project structure.
+*(No active tasks)*
 
 ## Future Roadmap
 - [ ] **Persistent Fingerprints**: Moving beyond temp files to a user-specified database or local directory.
@@ -41,4 +41,3 @@
 - [ ] **Automatic Scanning**: Auto-scan for matches when a new file starts.
 - [ ] **UI/OSD Improvements**: Better visual feedback for scan progress and match confidence.
 - [ ] **Fingerprint Interoperability**: Ensure both lua and luajit fingerprints can be used interchangeably.
-- [ ] **Add Tests**: Test critical paths and set up a test runner in CI

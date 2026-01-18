@@ -30,6 +30,7 @@ The script is in a functional and feature-complete state for its primary goal of
 - **Memory Bank Synchronization**: Updated the memory bank to reflect the recent modular refactor and the addition of the FFmpeg abstraction layer.
 - **Frame Quality Rejection**: Implemented a two-stage validation system (Spatial + DCT) to reject uniform, repetitive, or featureless frames before adding them to the database.
 - **Sound Quality Rejection**: Implemented a validation step to reject silence or low-complexity audio before generating fingerprints. This includes RMS amplitude checks and signal sparsity detection to prevent false positives from quiet sections.
+- **Comprehensive Test Suite**: Verified the existence of a robust test suite in `tests/` covering all core modules (`audio`, `video`, `fft`, `ffmpeg`, `config`, `actions`). The suite includes a custom runner (`run_tests.lua`) with auto-downloading for `luaunit` and full mocking of the MPV API.
 
 ## Current Focus
 - User feedback and stability improvements.

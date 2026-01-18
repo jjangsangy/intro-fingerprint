@@ -46,6 +46,15 @@ intro-fingerprint/
 └── memory-bank/            # Project documentation
 ```
 
+## Testing Strategy
+The project maintains a comprehensive test suite in the `tests/` directory, using `luaunit` as the test runner.
+- **Framework**: [LuaUnit](https://github.com/bluebird75/luaunit) (automatically downloaded by `run_tests.lua`).
+- **Mocking**: The `mp` API (properties, commands, OSD, messages) is fully mocked in `tests/mocks.lua` and `tests/run_tests.lua`, enabling tests to run in a standalone Lua environment without MPV.
+- **Coverage**:
+    - **Unit Tests**: Cover core algorithms (FFT, pHash, Hamming distance), validation logic, and utility functions.
+    - **Integration Tests**: Verify high-level workflows (capture, scan, skip) and FFmpeg command construction.
+- **Execution**: Run via `lua tests/run_tests.lua` (supports standard Lua 5.1+) or `luajit tests/run_tests.lua`.
+
 ## Optimization Decisions
 - **pHash (32x32 -> 8x8 DCT)**: Chosen for its superior robustness and invariance to brightness/contrast changes.
 - **Audio Normalization**: Uses mandatory `dynaudnorm` (default settings) to ensure spectral consistency regardless of source volume.

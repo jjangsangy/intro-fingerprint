@@ -1,4 +1,12 @@
 local lu = require('tests.luaunit')
+
+-- Setup mocks if needed (for standalone execution)
+if not package.preload['mp'] and not package.loaded['mp'] then
+    local mocks = require('tests.mocks')
+    local mp_mock = mocks.create_mp()
+    mocks.init_preload(mp_mock)
+end
+
 local fft = require('modules.fft')
 local utils = require('modules.utils')
 
@@ -31,15 +39,13 @@ function TestFFT:test_lua_fft_sine()
         input_real[i+1] = math.cos(2 * math.pi * 2 * i / n)
     end
 
-    -- Bit-reverse inputs as required by fft_lua_optimized
-    local cache = fft.get_lua_fft_cache(n)
-    local rev = cache.rev
+    -- Copy inputs (Natural Order)
     local real = {}
     local imag = {}
 
     for i = 0, n-1 do
-        real[rev[i+1]] = input_real[i+1]
-        imag[rev[i+1]] = 0
+        real[i+1] = input_real[i+1]
+        imag[i+1] = 0
     end
 
     fft.fft_lua_optimized(real, imag, n)

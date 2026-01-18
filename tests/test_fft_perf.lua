@@ -37,15 +37,13 @@ function TestFFTPerf:test_perf_comparison()
     for i = 1, n do input[i] = math.random() end
 
     -- Measure Local FFT
-    -- We include scrambling time because it's part of the usage pattern for this implementation
+    -- We NO LONGER include scrambling time because the new implementation (Stockham) expects natural order input
     local start_time = os.clock()
     for _ = 1, iterations do
-        -- Scramble
-        for i = 0, n - 1 do
-            local val = input[i + 1]
-            local target = rev[i + 1]
-            real_buf[target] = val
-            imag_buf[target] = 0
+        -- Copy Input (Natural Order)
+        for i = 1, n do
+            real_buf[i] = input[i]
+            imag_buf[i] = 0
         end
         -- Compute
         fft.fft_lua_optimized(real_buf, imag_buf, n)

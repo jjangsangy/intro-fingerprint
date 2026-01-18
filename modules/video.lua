@@ -42,9 +42,8 @@ local function dct_1d_makhoul_ffi(input_ptr, n, output_ptr, method, ctx)
     -- 2. Compute FFT
     if method == "lua" then
         local l_re, l_im = ctx.l_re, ctx.l_im
-        local rev = fft.get_lua_fft_cache(n).rev
         for i = 0, n - 1 do
-            l_re[rev[i + 1]], l_im[rev[i + 1]] = tonumber(real[i]), tonumber(imag[i])
+            l_re[i + 1], l_im[i + 1] = tonumber(real[i]), tonumber(imag[i])
         end
         fft.fft_lua_optimized(l_re, l_im, n)
         for i = 0, n - 1 do

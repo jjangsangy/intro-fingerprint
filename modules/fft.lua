@@ -7,11 +7,12 @@ local lua_fft_caches = {}
 
 --- Initialize FFT cache for a given size
 -- @param n number - FFT size (must be power of 2)
--- @note Pre-calculates trig tables and bit-reversal indices to avoid GC overhead
+-- @note Pre-calculates trig tables and working buffers to avoid GC overhead
 function M.init_lua_fft_cache(n)
     if lua_fft_caches[n] then return end
 
     local m = math.log(n) / math.log(2)
+    -- Bit-reversal table (kept for compatibility, though not used by Stockham FFT)
     local rev = {}
     for i = 0, n - 1 do
         local j = 0
@@ -23,23 +24,29 @@ function M.init_lua_fft_cache(n)
         rev[i + 1] = j + 1
     end
 
+    -- Twiddle factors for Stockham (flat array)
+    -- These correspond to exp(-2*pi*i*j/n) but we only need the table for the full circle
     local twiddles_re = {}
     local twiddles_im = {}
-    local k = 1
-    while k < n do
-        twiddles_re[k] = {}
-        twiddles_im[k] = {}
-        for i = 0, k - 1 do
-            local angle = -math.pi * i / k
-            twiddles_re[k][i] = math.cos(angle)
-            twiddles_im[k][i] = math.sin(angle)
-        end
-        k = k * 2
+    local pi = math.pi
+    for i = 0, n - 1 do
+        local angle = -2.0 * pi * i / n
+        twiddles_re[i] = math.cos(angle)
+        twiddles_im[i] = math.sin(angle)
     end
 
+    -- Hann window
     local hann = {}
     for i = 0, n - 1 do
         hann[i + 1] = 0.5 * (1 - math.cos(2 * math.pi * i / (n - 1)))
+    end
+
+    -- Work buffers for Stockham (ping-pong)
+    local work_re = {}
+    local work_im = {}
+    for i = 1, n do
+        work_re[i] = 0
+        work_im[i] = 0
     end
 
     lua_fft_caches[n] = {
@@ -47,6 +54,8 @@ function M.init_lua_fft_cache(n)
         twiddles_re = twiddles_re,
         twiddles_im = twiddles_im,
         hann = hann,
+        work_re = work_re,
+        work_im = work_im,
         n = n
     }
 end
@@ -61,43 +70,169 @@ function M.get_lua_fft_cache(n)
     return lua_fft_caches[n]
 end
 
---- Perform optimized Cooley-Tukey FFT in pure Lua
--- @param real table - Real part of the input/output array (modified in-place)
--- @param imag table - Imaginary part of the input/output array (modified in-place)
+--- Perform optimized Stockham FFT in pure Lua (Radix-4)
+-- @param re table - Real part of the input/output array (modified in-place)
+-- @param im table - Imaginary part of the input/output array (modified in-place)
 -- @param n number - FFT size
 -- @note Implementation uses pre-allocated caches and avoids trigonometric calls in the loop
-function M.fft_lua_optimized(real, imag, n)
+-- @note Expects NATURAL ORDER input (no bit-reversal needed)
+function M.fft_lua_optimized(re, im, n)
     local cache = M.get_lua_fft_cache(n)
-    local tw_re = cache.twiddles_re
-    local tw_im = cache.twiddles_im
+    local t_re = cache.twiddles_re
+    local t_im = cache.twiddles_im
+    local z_re = cache.work_re
+    local z_im = cache.work_im
+    
+    -- Current input/output arrays
+    -- We switch references between (re, im) and (z_re, z_im)
+    local x_re, x_im = re, im
+    local y_re, y_im = z_re, z_im
 
-    local k = 1
-    while k < n do
-        local step = k * 2
-        local tre = tw_re[k]
-        local tim = tw_im[k]
-        for i = 0, k - 1 do
-            local w_real = tre[i]
-            local w_imag = tim[i]
+    local l = 1
+    local n_quarter = n / 4
+    local n_half = n / 2
 
-            for j = i, n - 1, step do
-                local idx1 = j + 1
-                local idx2 = j + k + 1
+    -- If log2(n) is odd, perform one Radix-2 iteration first
+    if (math.log(n) / math.log(2)) % 2 ~= 0 then
+        for k = 0, n_half - 1 do
+            -- 0-based indices logic, mapped to 1-based table access
+            local i0 = k
+            local i1 = k + n_half
 
-                local r2 = real[idx2]
-                local i2 = imag[idx2]
-                local t_real = w_real * r2 - w_imag * i2
-                local t_imag = w_real * i2 + w_imag * r2
+            -- Lua tables are 1-based
+            local r0, im0 = x_re[i0 + 1], x_im[i0 + 1]
+            local r1, im1 = x_re[i1 + 1], x_im[i1 + 1]
 
-                local r1 = real[idx1]
-                local i1 = imag[idx1]
-                real[idx2] = r1 - t_real
-                imag[idx2] = i1 - t_imag
-                real[idx1] = r1 + t_real
-                imag[idx1] = i1 + t_imag
+            y_re[2 * k + 1] = r0 + r1
+            y_im[2 * k + 1] = im0 + im1
+            y_re[2 * k + 2] = r0 - r1
+            y_im[2 * k + 2] = im0 - im1
+        end
+        l = 2
+        -- Swap buffers
+        x_re, y_re = y_re, x_re
+        x_im, y_im = y_im, x_im
+    end
+
+    while l <= n_quarter do
+        local m = n / (4 * l)
+        if l == 1 then
+            for k = 0, m - 1 do
+                local i0 = k
+                local i1 = i0 + n_quarter
+                local i2 = i1 + n_quarter
+                local i3 = i2 + n_quarter
+
+                local r0, im0 = x_re[i0 + 1], x_im[i0 + 1]
+                local r1, im1 = x_re[i1 + 1], x_im[i1 + 1]
+                local r2, im2 = x_re[i2 + 1], x_im[i2 + 1]
+                local r3, im3 = x_re[i3 + 1], x_im[i3 + 1]
+
+                local a02r, a02i = r0 + r2, im0 + im2
+                local a13r, a13i = r1 + r3, im1 + im3
+                local s02r, s02i = r0 - r2, im0 - im2
+                local s13r, s13i = r1 - r3, im1 - im3
+
+                local dst = 4 * k
+                y_re[dst + 1] = a02r + a13r
+                y_im[dst + 1] = a02i + a13i
+                y_re[dst + 2] = s02r + s13i
+                y_im[dst + 2] = s02i - s13r
+                y_re[dst + 3] = a02r - a13r
+                y_im[dst + 3] = a02i - a13i
+                y_re[dst + 4] = s02r - s13i
+                y_im[dst + 4] = s02i + s13r
+            end
+        else
+            for k = 0, m - 1 do
+                local base_i = k * l
+                local base_z = 4 * k * l
+                
+                -- j = 0 iteration (twiddle is 1)
+                do
+                    local i0 = base_i
+                    local i1 = i0 + n_quarter
+                    local i2 = i1 + n_quarter
+                    local i3 = i2 + n_quarter
+
+                    local r0, im0 = x_re[i0 + 1], x_im[i0 + 1]
+                    local r1, im1 = x_re[i1 + 1], x_im[i1 + 1]
+                    local r2, im2 = x_re[i2 + 1], x_im[i2 + 1]
+                    local r3, im3 = x_re[i3 + 1], x_im[i3 + 1]
+
+                    local a02r, a02i = r0 + r2, im0 + im2
+                    local a13r, a13i = r1 + r3, im1 + im3
+                    local s02r, s02i = r0 - r2, im0 - im2
+                    local s13r, s13i = r1 - r3, im1 - im3
+
+                    y_re[base_z + 1] = a02r + a13r
+                    y_im[base_z + 1] = a02i + a13i
+                    y_re[base_z + l + 1] = s02r + s13i
+                    y_im[base_z + l + 1] = s02i - s13r
+                    y_re[base_z + 2 * l + 1] = a02r - a13r
+                    y_im[base_z + 2 * l + 1] = a02i - a13i
+                    y_re[base_z + 3 * l + 1] = s02r - s13i
+                    y_im[base_z + 3 * l + 1] = s02i + s13r
+                end
+
+                for j = 1, l - 1 do
+                    local i0 = base_i + j
+                    local i1 = i0 + n_quarter
+                    local i2 = i1 + n_quarter
+                    local i3 = i2 + n_quarter
+
+                    local r0, im0 = x_re[i0 + 1], x_im[i0 + 1]
+                    local r1, im1 = x_re[i1 + 1], x_im[i1 + 1]
+                    local r2, im2 = x_re[i2 + 1], x_im[i2 + 1]
+                    local r3, im3 = x_re[i3 + 1], x_im[i3 + 1]
+
+                    -- Twiddle access: t_re[j*m]
+                    -- cache.twiddles_re is 0-based keys? No, I initialized it with loop 0 to n-1.
+                    -- But Lua arrays with numeric keys... 
+                    -- M.init_lua_fft_cache: twiddles_re[i] = ... for i=0,n-1.
+                    -- If I used 'local twiddles_re = {}', twiddles_re[0] is valid.
+                    -- Yes, Lua tables can have 0 index.
+                    
+                    local w1r, w1i = t_re[j * m], t_im[j * m]
+                    local w2r, w2i = t_re[j * 2 * m], t_im[j * 2 * m]
+                    local w3r, w3i = t_re[j * 3 * m], t_im[j * 3 * m]
+
+                    local t1r = r1 * w1r - im1 * w1i
+                    local t1i = r1 * w1i + im1 * w1r
+                    local t2r = r2 * w2r - im2 * w2i
+                    local t2i = r2 * w2i + im2 * w2r
+                    local t3r = r3 * w3r - im3 * w3i
+                    local t3i = r3 * w3i + im3 * w3r
+
+                    local a02r, a02i = r0 + t2r, im0 + t2i
+                    local a13r, a13i = t1r + t3r, t1i + t3i
+                    local s02r, s02i = r0 - t2r, im0 - t2i
+                    local s13r, s13i = t1r - t3r, t1i - t3i
+
+                    local dst = base_z + j
+                    y_re[dst + 1] = a02r + a13r
+                    y_im[dst + 1] = a02i + a13i
+                    y_re[dst + l + 1] = s02r + s13i
+                    y_im[dst + l + 1] = s02i - s13r
+                    y_re[dst + 2 * l + 1] = a02r - a13r
+                    y_im[dst + 2 * l + 1] = a02i - a13i
+                    y_re[dst + 3 * l + 1] = s02r - s13i
+                    y_im[dst + 3 * l + 1] = s02i + s13r
+                end
             end
         end
-        k = step
+        l = l * 4
+        x_re, y_re = y_re, x_re
+        x_im, y_im = y_im, x_im
+    end
+
+    -- If the final result is in the work buffer (z_re), copy it back to re
+    -- Note: x_re points to the buffer containing the CURRENT result.
+    if x_re ~= re then
+        for i = 1, n do
+            re[i] = x_re[i]
+            im[i] = x_im[i]
+        end
     end
 end
 

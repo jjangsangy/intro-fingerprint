@@ -265,7 +265,6 @@ function M.process_audio_data(pcm_str)
             mp.msg.error("FFT cache not initialized")
             return {}, 0
         end
-        local rev = cache.rev
         local hann = cache.hann
         local real_buf = {}
         local imag_buf = {}
@@ -274,11 +273,10 @@ function M.process_audio_data(pcm_str)
         local spec_count = 0
 
         for i = 1, num_samples - fft_size + 1, hop_size do
-            -- Scramble into buffer while applying Hann window
+            -- Copy into buffer while applying Hann window (Natural Order)
             for j = 0, fft_size - 1 do
-                local target = rev[j + 1]
-                real_buf[target] = samples[i + j] * hann[j + 1]
-                imag_buf[target] = 0
+                real_buf[j + 1] = samples[i + j] * hann[j + 1]
+                imag_buf[j + 1] = 0
             end
 
             fft.fft_lua_optimized(real_buf, imag_buf, fft_size)

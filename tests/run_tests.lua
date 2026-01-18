@@ -72,6 +72,7 @@ require('tests.test_ffmpeg')
 require('tests.test_ui')
 require('tests.test_state')
 require('tests.test_actions')
+require('tests.test_fingerprint_io')
 
 -- 5. Run Tests
 local lu = require('tests.luaunit')

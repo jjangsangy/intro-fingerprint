@@ -20,15 +20,6 @@ function TestUtils:test_get_temp_dir()
     lu.assertTrue(#temp > 0)
 end
 
-function TestUtils:test_paths()
-    -- These rely on the mocked mp.utils.join_path
-    local vid_path = utils.get_video_fingerprint_path()
-    local aud_path = utils.get_audio_fingerprint_path()
-
-    lu.assertStrContains(vid_path, config.options.video_temp_filename)
-    lu.assertStrContains(aud_path, config.options.audio_temp_filename)
-end
-
 function TestUtils:test_ffi_status()
     -- Depending on the runner (lua vs luajit), this will be true or false
     -- We just verify it is a boolean

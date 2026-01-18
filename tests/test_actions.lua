@@ -3,6 +3,7 @@ local actions = require('modules.actions')
 local mp = require('mp')
 local utils = require('modules.utils')
 local config = require('modules.config')
+local fingerprint_io = require('modules.fingerprint_io')
 
 TestActions = {}
 
@@ -18,8 +19,8 @@ function TestActions:setUp()
     mp.set_property("duration", 200)
 
     -- Create dummy fingerprint files if needed
-    self.v_path = utils.get_video_fingerprint_path()
-    self.a_path = utils.get_audio_fingerprint_path()
+    self.v_path = fingerprint_io.get_video_fingerprint_path()
+    self.a_path = fingerprint_io.get_audio_fingerprint_path()
 
     os.remove(self.v_path)
     os.remove(self.a_path)
@@ -108,11 +109,7 @@ function TestActions:test_skip_intro_video_match()
     local dummy_frame = table.concat(t)
 
     -- Create a fingerprint file
-    local f = io.open(self.v_path, "wb")
-    assert(f, "File doesn't exist "..self.v_path)
-    f:write("50.0\n")
-    f:write(dummy_frame)
-    f:close()
+    fingerprint_io.write_video(50.0, dummy_frame)
 
     -- Mock scan result
 

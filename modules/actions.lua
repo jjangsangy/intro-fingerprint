@@ -6,6 +6,7 @@ local ui = require 'modules.ui'
 local video = require 'modules.video'
 local audio = require 'modules.audio'
 local ffmpeg = require 'modules.ffmpeg'
+local fingerprint_io = require 'modules.fingerprint_io'
 
 local M = {}
 
@@ -25,9 +26,6 @@ function M.save_intro()
     ui.show_message("Generating fingerprints...")
 
     -- --- VIDEO SAVE ---
-    local fp_path_v = utils.get_video_fingerprint_path()
-    utils.log_info("Saving video fingerprint to: " .. fp_path_v)
-
     local res_v = ffmpeg.run_task('extract_video', { time = time_pos, path = path })
 
     if res_v and res_v.status == 0 and res_v.stdout and #res_v.stdout > 0 then
@@ -38,20 +36,12 @@ function M.save_intro()
             return
         end
 
-        local file_v = io.open(fp_path_v, "wb")
-        if file_v then
-            file_v:write(tostring(time_pos) .. "\n")
-            file_v:write(res_v.stdout)
-            file_v:close()
-        end
+        fingerprint_io.write_video(time_pos, res_v.stdout)
     else
         ui.show_message("Error capturing video frame", 3)
     end
 
     -- --- AUDIO SAVE ---
-    local fp_path_a = utils.get_audio_fingerprint_path()
-    utils.log_info("Saving audio fingerprint to: " .. fp_path_a)
-
     local start_a = math.max(0, time_pos - config.options.audio_fingerprint_duration)
     local dur_a = time_pos - start_a
 
@@ -84,34 +74,7 @@ function M.save_intro()
 
     utils.log_info("Generated " .. count .. " audio hashes")
 
-    local file_a = io.open(fp_path_a, "wb")
-    if file_a then
-        -- Format:
-        -- Line 1: Header/Version
-        -- Line 2: Duration of the capture (offset to skip to)
-        -- Lines 3+: hash time
-        file_a:write("# INTRO_FINGERPRINT_V1\n")
-        file_a:write(string.format("%.4f\n", dur_a))
-
-        local factor = config.options.audio_hop_size / config.options.audio_sample_rate
-        if utils.ffi_status and type(hashes) == "cdata" then
-            if hashes then
-                for i = 0, count - 1 do
-                    local h = hashes[i]
-                    if h then
-                        file_a:write(string.format("%d %.4f\n", h.h, h.t * factor))
-                    end
-                end
-            end
-        else
-            if hashes then
-                for _, h in ipairs(hashes) do
-                    file_a:write(string.format("%d %.4f\n", h.h, h.t * factor))
-                end
-            end
-        end
-        file_a:close()
-    end
+    fingerprint_io.write_audio(dur_a, hashes, count)
     ui.show_message("Intro Captured! (Video + Audio)", 2)
 end
 
@@ -127,25 +90,12 @@ function M.skip_intro_video()
     end
 
     utils.run_async(function()
-        local fp_path = utils.get_video_fingerprint_path()
-        local file = io.open(fp_path, "rb")
+        local saved_time, target_bytes = fingerprint_io.read_video()
 
-        if not file then
+        if not saved_time then
             ui.show_message("No intro captured yet.", 2)
             return
         end
-
-        local saved_time_str = file:read("*line")
-        local saved_time = tonumber(saved_time_str)
-
-        if not saved_time then
-            ui.show_message("Corrupted fingerprint file.", 2)
-            file:close()
-            return
-        end
-
-        local target_bytes = file:read("*all")
-        file:close()
 
         if not target_bytes or #target_bytes < config.VIDEO_FRAME_SIZE then
             ui.show_message("Invalid fingerprint data.", 2)
@@ -261,39 +211,12 @@ function M.skip_intro_audio()
     end
 
     utils.run_async(function()
-        local fp_path = utils.get_audio_fingerprint_path()
-        local file = io.open(fp_path, "r")
-        if not file then
+        local capture_duration, saved_hashes, total_intro_hashes = fingerprint_io.read_audio()
+
+        if not capture_duration then
             ui.show_message("No audio intro captured.", 2)
             return
         end
-
-        local line = file:read("*line")
-        if line == "# INTRO_FINGERPRINT_V1" then
-            line = file:read("*line")
-        end
-
-        local capture_duration = tonumber(line)
-        if not capture_duration then
-            ui.show_message("Invalid audio fingerprint file.", 2)
-            file:close()
-            return
-        end
-
-        -- Load saved hashes (Inverted Index)
-        local saved_hashes = {} -- hash -> list of times
-        local total_intro_hashes = 0
-        for l in file:lines() do
-            local h, t = string.match(l, "([%-]?%d+) ([%d%.]+)")
-            h = tonumber(h)
-            t = tonumber(t)
-            if h and t then
-                if not saved_hashes[h] then saved_hashes[h] = {} end
-                table.insert(saved_hashes[h], t)
-                total_intro_hashes = total_intro_hashes + 1
-            end
-        end
-        file:close()
 
         if total_intro_hashes == 0 then
             ui.show_message("Empty audio fingerprint.", 2)
@@ -345,7 +268,7 @@ function M.skip_intro_audio()
             local rel_time = t * factor
             -- Filter: Ignore hashes that belong to the next segment's padding overlap
             if rel_time >= segment_dur then return end
-
+            if not saved_hashes then return end
             local saved = saved_hashes[h]
             if not saved then return end
 

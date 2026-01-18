@@ -72,20 +72,5 @@ function M.get_temp_dir()
     return os.getenv("TEMP") or os.getenv("TMP") or os.getenv("TMPDIR") or "/tmp"
 end
 
---- Get the full path for the video fingerprint file
--- @return string - Full path to the video fingerprint file
--- @note Uses mp.utils.join_path()
-function M.get_video_fingerprint_path()
-    local temp_dir = M.get_temp_dir()
-    return mp_utils.join_path(temp_dir, config.options.video_temp_filename)
-end
-
---- Get the full path for the audio fingerprint file
--- @return string - Full path to the audio fingerprint file
--- @note Uses mp.utils.join_path()
-function M.get_audio_fingerprint_path()
-    local temp_dir = M.get_temp_dir()
-    return mp_utils.join_path(temp_dir, config.options.audio_temp_filename)
-end
 
 return M

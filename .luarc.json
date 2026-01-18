@@ -1,0 +1,17 @@
+{
+    "runtime": {
+        "version": "LuaJIT"
+    },
+    "diagnostics": {
+        "globals": [
+            "mp",
+            "msg",
+            "print",
+            "dump"
+        ]
+    },
+    "workspace": {
+        "library": [],
+        "checkThirdParty": false
+    }
+}

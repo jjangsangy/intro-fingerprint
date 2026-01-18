@@ -123,4 +123,11 @@ function M.create_mp()
     return mp
 end
 
+function M.init_preload(mp)
+    package.preload['mp'] = function() return mp end
+    package.preload['mp.msg'] = function() return mp.msg end
+    package.preload['mp.utils'] = function() return mp.utils end
+    package.preload['mp.options'] = function() return mp.options end
+end
+
 return M

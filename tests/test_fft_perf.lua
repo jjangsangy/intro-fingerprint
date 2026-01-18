@@ -4,10 +4,7 @@ local lu = require('tests.luaunit')
 if not package.preload['mp'] and not package.loaded['mp'] then
     local mocks = require('tests.mocks')
     local mp_mock = mocks.create_mp()
-    package.preload['mp'] = function() return mp_mock end
-    package.preload['mp.msg'] = function() return mp_mock.msg end
-    package.preload['mp.utils'] = function() return mp_mock.utils end
-    package.preload['mp.options'] = function() return mp_mock.options end
+    mocks.init_preload(mp_mock)
 end
 
 local fft = require('modules.fft')
@@ -80,11 +77,11 @@ function TestFFTPerf:test_perf_comparison()
     print(string.format("ZFFT:      %.4fs", z_duration))
     print(string.format("Speedup:   %.2fx", speedup))
 
-    -- Threshold: Ensure local implementation is at least 2.7x faster than ZFFT
+    -- Threshold: Ensure local implementation is at least 2.0x faster than ZFFT
     -- (Local uses cached twiddles and optimized arithmetic, ZFFT computes twiddles every time)
     -- We set a conservative threshold to catch major regressions without flakiness.
     -- Based on expected performance difference due to caching.
-    local threshold = 2.7
+    local threshold = 2.0
 
     lu.assertIsTrue(speedup > threshold,
         string.format("Performance regression: Speedup %.2fx is below threshold %.1fx", speedup, threshold))

@@ -63,10 +63,7 @@ local mocks = require('tests.mocks')
 local mp_mock = mocks.create_mp()
 
 -- Preload 'mp' and its sub-modules
-package.preload['mp'] = function() return mp_mock end
-package.preload['mp.msg'] = function() return mp_mock.msg end
-package.preload['mp.utils'] = function() return mp_mock.utils end
-package.preload['mp.options'] = function() return mp_mock.options end
+mocks.init_preload(mp_mock)
 
 -- 4. Load Test Files
 require('tests.test_config')

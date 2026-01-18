@@ -56,7 +56,8 @@ function M.init_lua_fft_cache(n)
         hann = hann,
         work_re = work_re,
         work_im = work_im,
-        n = n
+        n = n,
+        log2_n = m
     }
 end
 
@@ -93,20 +94,23 @@ function M.fft_lua_optimized(re, im, n)
     local n_half = n / 2
 
     -- If log2(n) is odd, perform one Radix-2 iteration first
-    if (math.log(n) / math.log(2)) % 2 ~= 0 then
-        for k = 0, n_half - 1 do
-            -- 0-based indices logic, mapped to 1-based table access
+    -- Use cached log2_n to avoid math.log
+    if cache.log2_n % 2 ~= 0 then
+        -- 1-based indexing loop: k=1 to n_half
+        for k = 1, n_half do
             local i0 = k
             local i1 = k + n_half
 
-            -- Lua tables are 1-based
-            local r0, im0 = x_re[i0 + 1], x_im[i0 + 1]
-            local r1, im1 = x_re[i1 + 1], x_im[i1 + 1]
+            local r0, im0 = x_re[i0], x_im[i0]
+            local r1, im1 = x_re[i1], x_im[i1]
 
-            y_re[2 * k + 1] = r0 + r1
-            y_im[2 * k + 1] = im0 + im1
-            y_re[2 * k + 2] = r0 - r1
-            y_im[2 * k + 2] = im0 - im1
+            local dst0 = 2 * k - 1
+            local dst1 = 2 * k
+
+            y_re[dst0] = r0 + r1
+            y_im[dst0] = im0 + im1
+            y_re[dst1] = r0 - r1
+            y_im[dst1] = im0 - im1
         end
         l = 2
         -- Swap buffers
@@ -116,86 +120,115 @@ function M.fft_lua_optimized(re, im, n)
 
     while l <= n_quarter do
         local m = n / (4 * l)
+        
         if l == 1 then
-            for k = 0, m - 1 do
+            -- Optimized Radix-4 for l=1 (no twiddles, m iterations)
+            local dst = 1
+            for k = 1, m do
+                -- 1-based input indices
+                -- x inputs at k, k+m, k+2m, k+3m (where m=n_quarter)
                 local i0 = k
                 local i1 = i0 + n_quarter
                 local i2 = i1 + n_quarter
                 local i3 = i2 + n_quarter
 
-                local r0, im0 = x_re[i0 + 1], x_im[i0 + 1]
-                local r1, im1 = x_re[i1 + 1], x_im[i1 + 1]
-                local r2, im2 = x_re[i2 + 1], x_im[i2 + 1]
-                local r3, im3 = x_re[i3 + 1], x_im[i3 + 1]
+                local r0, im0 = x_re[i0], x_im[i0]
+                local r1, im1 = x_re[i1], x_im[i1]
+                local r2, im2 = x_re[i2], x_im[i2]
+                local r3, im3 = x_re[i3], x_im[i3]
 
+                -- Butterfly operations
                 local a02r, a02i = r0 + r2, im0 + im2
                 local a13r, a13i = r1 + r3, im1 + im3
                 local s02r, s02i = r0 - r2, im0 - im2
                 local s13r, s13i = r1 - r3, im1 - im3
 
-                local dst = 4 * k
-                y_re[dst + 1] = a02r + a13r
-                y_im[dst + 1] = a02i + a13i
-                y_re[dst + 2] = s02r + s13i
-                y_im[dst + 2] = s02i - s13r
-                y_re[dst + 3] = a02r - a13r
-                y_im[dst + 3] = a02i - a13i
-                y_re[dst + 4] = s02r - s13i
-                y_im[dst + 4] = s02i + s13r
+                -- Output
+                y_re[dst]     = a02r + a13r
+                y_im[dst]     = a02i + a13i
+                y_re[dst + 1] = s02r + s13i
+                y_im[dst + 1] = s02i - s13r
+                y_re[dst + 2] = a02r - a13r
+                y_im[dst + 2] = a02i - a13i
+                y_re[dst + 3] = s02r - s13i
+                y_im[dst + 3] = s02i + s13r
+                
+                dst = dst + 4
             end
         else
-            for k = 0, m - 1 do
-                local base_i = k * l
-                local base_z = 4 * k * l
-                
+            -- General Radix-4 Step
+            -- Outer loop runs 'm' times
+            -- Inner loop runs 'l' times (j=1 to l-1) plus separate j=0
+            
+            -- Pointers for incremental updates
+            -- base_i corresponds to k*l (0-based) -> k*l + 1 (1-based)
+            -- base_z corresponds to 4*k*l (0-based) -> 4*k*l + 1 (1-based)
+            local base_i_1 = 1
+            local base_z_1 = 1
+            
+            local stride_i = l
+            local stride_z = 4 * l
+
+            -- Pre-calculate twiddle increments
+            local tw_step1 = m
+            local tw_step2 = 2 * m
+            local tw_step3 = 3 * m
+
+            for k = 1, m do
                 -- j = 0 iteration (twiddle is 1)
                 do
-                    local i0 = base_i
+                    local i0 = base_i_1
                     local i1 = i0 + n_quarter
                     local i2 = i1 + n_quarter
                     local i3 = i2 + n_quarter
 
-                    local r0, im0 = x_re[i0 + 1], x_im[i0 + 1]
-                    local r1, im1 = x_re[i1 + 1], x_im[i1 + 1]
-                    local r2, im2 = x_re[i2 + 1], x_im[i2 + 1]
-                    local r3, im3 = x_re[i3 + 1], x_im[i3 + 1]
+                    local r0, im0 = x_re[i0], x_im[i0]
+                    local r1, im1 = x_re[i1], x_im[i1]
+                    local r2, im2 = x_re[i2], x_im[i2]
+                    local r3, im3 = x_re[i3], x_im[i3]
 
                     local a02r, a02i = r0 + r2, im0 + im2
                     local a13r, a13i = r1 + r3, im1 + im3
                     local s02r, s02i = r0 - r2, im0 - im2
                     local s13r, s13i = r1 - r3, im1 - im3
 
-                    y_re[base_z + 1] = a02r + a13r
-                    y_im[base_z + 1] = a02i + a13i
-                    y_re[base_z + l + 1] = s02r + s13i
-                    y_im[base_z + l + 1] = s02i - s13r
-                    y_re[base_z + 2 * l + 1] = a02r - a13r
-                    y_im[base_z + 2 * l + 1] = a02i - a13i
-                    y_re[base_z + 3 * l + 1] = s02r - s13i
-                    y_im[base_z + 3 * l + 1] = s02i + s13r
+                    local dst = base_z_1
+                    y_re[dst]             = a02r + a13r
+                    y_im[dst]             = a02i + a13i
+                    y_re[dst + l]     = s02r + s13i
+                    y_im[dst + l]     = s02i - s13r
+                    y_re[dst + 2 * l] = a02r - a13r
+                    y_im[dst + 2 * l] = a02i - a13i
+                    y_re[dst + 3 * l] = s02r - s13i
+                    y_im[dst + 3 * l] = s02i + s13r
                 end
 
+                -- j loop (1 to l-1)
+                -- Avoid k*l multiplication inside
+                -- Access twiddles incrementally
+                local w_idx1 = tw_step1
+                local w_idx2 = tw_step2
+                local w_idx3 = tw_step3
+                
+                local src_ptr = base_i_1 + 1
+                local dst_ptr = base_z_1 + 1
+                
                 for j = 1, l - 1 do
-                    local i0 = base_i + j
+                    local i0 = src_ptr
                     local i1 = i0 + n_quarter
                     local i2 = i1 + n_quarter
                     local i3 = i2 + n_quarter
 
-                    local r0, im0 = x_re[i0 + 1], x_im[i0 + 1]
-                    local r1, im1 = x_re[i1 + 1], x_im[i1 + 1]
-                    local r2, im2 = x_re[i2 + 1], x_im[i2 + 1]
-                    local r3, im3 = x_re[i3 + 1], x_im[i3 + 1]
+                    local r0, im0 = x_re[i0], x_im[i0]
+                    local r1, im1 = x_re[i1], x_im[i1]
+                    local r2, im2 = x_re[i2], x_im[i2]
+                    local r3, im3 = x_re[i3], x_im[i3]
 
-                    -- Twiddle access: t_re[j*m]
-                    -- cache.twiddles_re is 0-based keys? No, I initialized it with loop 0 to n-1.
-                    -- But Lua arrays with numeric keys... 
-                    -- M.init_lua_fft_cache: twiddles_re[i] = ... for i=0,n-1.
-                    -- If I used 'local twiddles_re = {}', twiddles_re[0] is valid.
-                    -- Yes, Lua tables can have 0 index.
-                    
-                    local w1r, w1i = t_re[j * m], t_im[j * m]
-                    local w2r, w2i = t_re[j * 2 * m], t_im[j * 2 * m]
-                    local w3r, w3i = t_re[j * 3 * m], t_im[j * 3 * m]
+                    -- Twiddle access using incremental indices
+                    -- Note: w_idx starts at m (>=1)
+                    local w1r, w1i = t_re[w_idx1], t_im[w_idx1]
+                    local w2r, w2i = t_re[w_idx2], t_im[w_idx2]
+                    local w3r, w3i = t_re[w_idx3], t_im[w_idx3]
 
                     local t1r = r1 * w1r - im1 * w1i
                     local t1i = r1 * w1i + im1 * w1r
@@ -209,16 +242,26 @@ function M.fft_lua_optimized(re, im, n)
                     local s02r, s02i = r0 - t2r, im0 - t2i
                     local s13r, s13i = t1r - t3r, t1i - t3i
 
-                    local dst = base_z + j
-                    y_re[dst + 1] = a02r + a13r
-                    y_im[dst + 1] = a02i + a13i
-                    y_re[dst + l + 1] = s02r + s13i
-                    y_im[dst + l + 1] = s02i - s13r
-                    y_re[dst + 2 * l + 1] = a02r - a13r
-                    y_im[dst + 2 * l + 1] = a02i - a13i
-                    y_re[dst + 3 * l + 1] = s02r - s13i
-                    y_im[dst + 3 * l + 1] = s02i + s13r
+                    y_re[dst_ptr]             = a02r + a13r
+                    y_im[dst_ptr]             = a02i + a13i
+                    y_re[dst_ptr + l]     = s02r + s13i
+                    y_im[dst_ptr + l]     = s02i - s13r
+                    y_re[dst_ptr + 2 * l] = a02r - a13r
+                    y_im[dst_ptr + 2 * l] = a02i - a13i
+                    y_re[dst_ptr + 3 * l] = s02r - s13i
+                    y_im[dst_ptr + 3 * l] = s02i + s13r
+
+                    src_ptr = src_ptr + 1
+                    dst_ptr = dst_ptr + 1
+                    
+                    w_idx1 = w_idx1 + tw_step1
+                    w_idx2 = w_idx2 + tw_step2
+                    w_idx3 = w_idx3 + tw_step3
                 end
+                
+                -- Increment base pointers for next k
+                base_i_1 = base_i_1 + stride_i
+                base_z_1 = base_z_1 + stride_z
             end
         end
         l = l * 4
@@ -398,7 +441,7 @@ function M.fft_stockham(re, im, y_re, y_im, n)
     end
 
     if x_re ~= re then
-        for i = 0, n - 1 do
+        for i = 1, n do
             re[i] = x_re[i]
             im[i] = x_im[i]
         end

@@ -21,7 +21,7 @@
 ## Technical Constraints
 - **Modular Structure**: The project follows a modular architecture as defined in `.clinerules/mpv-lua-practices.md`. This includes the "Local Table Pattern," "Strict Locals," and a single-responsibility directory structure (`modules/`).
 - **LuaJIT Dependency**: The script heavily utilizes FFI and bitwise operations. While fallback paths exist for standard Lua, significant optimizations have been implemented for non-FFI environments:
-    - **Audio**: An optimized in-place Cooley-Tukey FFT implementation with precomputed tables provides a ~2.5x speedup over naive Lua code.
+    - **Audio**: An optimized Stockham FFT implementation with precomputed tables, 1-based indexing, and incremental arithmetic provides a ~4x speedup over naive Lua code (ZFFT).
     - **Video**: A **Partial Direct DCT** implementation provides a **~4x speedup** for pHash generation by computing only required coefficients and using a zero-allocation buffer model.
 - **FFmpeg Path**: FFmpeg must be executable from the command line.
 - **File System**: Requires write access to the system temp directory to store fingerprint files.

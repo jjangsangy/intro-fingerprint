@@ -441,7 +441,7 @@ function M.fft_stockham(re, im, y_re, y_im, n)
     end
 
     if x_re ~= re then
-        for i = 1, n do
+        for i = 0, n - 1 do
             re[i] = x_re[i]
             im[i] = x_im[i]
         end

@@ -32,10 +32,13 @@ local function download_file(path, url)
          if ret == 0 or ret == true then success = true end
     end
 
-    -- 3. Try PowerShell (Windows fallback)
+    -- 3. Try BITSAdmin (Windows cmd fallback)
     if not success then
-        -- PowerShell might not be in PATH on non-Windows, or might be pwsh
-        local cmd = 'powershell -Command "Invoke-WebRequest -Uri \'' .. url .. '\' -OutFile \'' .. path .. '\'"'
+        -- bitsadmin requires absolute paths and backslashes
+        local win_path = path:gsub("/", "\\")
+        local job_name = "Download_" .. os.time()
+        -- %CD% is expanded by cmd.exe to the current directory
+        local cmd = 'bitsadmin /transfer "' .. job_name .. '" /priority foreground "' .. url .. '" "%CD%\\' .. win_path .. '"'
         ret = os.execute(cmd)
         if ret == 0 or ret == true then success = true end
     end

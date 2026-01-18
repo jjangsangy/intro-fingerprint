@@ -24,7 +24,7 @@ function TestUtils:test_paths()
     -- These rely on the mocked mp.utils.join_path
     local vid_path = utils.get_video_fingerprint_path()
     local aud_path = utils.get_audio_fingerprint_path()
-    
+
     lu.assertStrContains(vid_path, config.options.video_temp_filename)
     lu.assertStrContains(aud_path, config.options.audio_temp_filename)
 end
@@ -54,22 +54,22 @@ function TestUtils:test_abort_scan()
     -- Setup active state
     state.scanning = true
     state.current_scan_token = 123
-    
+
     -- Mock abort_async_command (already in mocks.lua but we want to verify calls)
     -- We'll just check if state is reset, as the mock implementation is empty
     -- To check if mp.abort_async_command was called, we'd need to spy on it.
     -- Let's improve the mock spy in mocks.lua or hook it here.
-    
+
     local aborted_token = nil
     local orig_abort = mp.abort_async_command
     mp.abort_async_command = function(t) aborted_token = t end
-    
+
     utils.abort_scan()
-    
+
     lu.assertFalse(state.scanning)
     lu.assertNil(state.current_scan_token)
     lu.assertEquals(aborted_token, 123)
-    
+
     -- Check logging
     -- utils.log_info calls msg.info if debug is on
     config.options.debug = "yes"
@@ -80,7 +80,7 @@ function TestUtils:test_abort_scan()
         if l[2] == "Scan aborted." then found = true end
     end
     lu.assertTrue(found)
-    
+
     -- Restore
     mp.abort_async_command = orig_abort
 end
@@ -90,22 +90,22 @@ function TestUtils:test_run_async()
     local function my_task()
         called = true
     end
-    
+
     utils.run_async(my_task)
     lu.assertTrue(called)
-    
+
     -- Test error handling
     local function error_task()
         error("Boom")
     end
-    
+
     -- Should not crash test runner
     -- Should log error
     state.scanning = true
     utils.run_async(error_task)
-    
+
     lu.assertFalse(state.scanning) -- Should reset scanning on error
-    
+
     local found_err = false
     for _, l in ipairs(mp._log) do
         if l[1] == "error" and string.find(l[2], "Boom") then found_err = true end

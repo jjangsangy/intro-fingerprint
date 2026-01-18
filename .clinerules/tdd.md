@@ -5,7 +5,11 @@ Run from the project root:
 ```bash
 luajit tests/run_tests.lua
 ```
-(Or `lua tests/run_tests.lua` if LuaJIT is unavailable)
+
+Also ensure it works on pure lua 5.1
+```bash
+lua tests/run_tests.lua
+```
 
 ## Adding Tests
 1.  **Create File**: `tests/test_<module>.lua`

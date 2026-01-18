@@ -17,7 +17,7 @@ end
 function TestState:test_state_mutation()
     state.scanning = true
     lu.assertTrue(state.scanning)
-    
+
     state.current_scan_token = 123
     lu.assertEquals(state.current_scan_token, 123)
 end

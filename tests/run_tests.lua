@@ -16,7 +16,7 @@ local function ensure_luaunit()
 
     print("luaunit.lua not found. Downloading...")
     local url = "https://raw.githubusercontent.com/bluebird75/luaunit/master/luaunit.lua"
-    
+
     local success = false
     local ret
 
@@ -33,7 +33,7 @@ local function ensure_luaunit()
          ret = os.execute(cmd)
          if ret == 0 or ret == true then success = true end
     end
-    
+
     -- 3. Try PowerShell (Windows fallback)
     if not success then
         -- PowerShell might not be in PATH on non-Windows, or might be pwsh
@@ -41,7 +41,7 @@ local function ensure_luaunit()
         ret = os.execute(cmd)
         if ret == 0 or ret == true then success = true end
     end
-    
+
     if not success then
          print("Error: Failed to download luaunit.lua. Please download it manually from:")
          print(url)

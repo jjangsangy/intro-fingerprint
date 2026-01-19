@@ -174,16 +174,36 @@ Perceptual Hashing (pHash) works by "squinting" at the image—resizing it to a 
 -   If an image is **too simple** (solid color), the thumbnail is featureless.
 -   If an image is **too complex** (dense text), the fine details disappear when resized, leaving a featureless gray blob.
 
-| Type                                  |          Original Frame           |       What pHash Sees (32x32 Grayscale)       |
-| :------------------------------------ | :-------------------------------: | :-------------------------------------------: |
-| **Good Frame**<br>(Accepted)          | ![Accepted](assets/accepted.webp) | ![Accepted pHash](assets/accepted_phash.webp) |
-| **Bad Frame**<br>(Noisy/Low-Contrast) | ![Rejected](assets/rejected.webp) | ![Rejected pHash](assets/rejected_phash.webp) |
-| **Bad Frame**<br>(Soft/Clouds)        |   ![Clouds](assets/clouds.webp)   |   ![Clouds pHash](assets/clouds_phash.webp)   |
+#### 1. Good Frame (Accepted)
+| Original Frame | What pHash Sees (32x32 Grayscale) |
+| :---: | :---: |
+| ![Accepted](assets/samuel.webp) | ![Accepted pHash](assets/samuel_phash.webp) |
 
-The difference is clear when looking at what pHash actually sees:
--   **Accepted**: The image has **high contrast and distinct structure**. You can clearly see a bright central column separated from darker regions. These "bones" of the image remain stable even after resizing and compression.
--   **Rejected**: The image is **low contrast and indistinct**. It lacks strong geometric shapes or clear edges, appearing as a noisy, washed-out blur. Without strong structural features, the hash becomes dominated by random noise, making it unstable.
--   **Clouds**: The image is **soft and gradient-heavy**. While there is some contrast, the lack of sharp edges or distinct shapes means the hash will be unstable. Soft transitions are easily affected by minor compression or lighting changes.
+The image has **high contrast and distinct structure**. You can clearly see shapes that remain stable even after resizing and compression.
+
+#### 2. Bad Frame (Noisy/Low-Contrast)
+| Original Frame | What pHash Sees |
+| :---: | :---: |
+| ![Rejected](assets/interstellar.webp) | ![Rejected pHash](assets/interstellar_phash.webp) |
+
+**Reason: Low Variance & Low Edge Density.**
+The image is too dark and uniform. With a standard deviation below 10, there is insufficient contrast to differentiate features. The lack of distinct shapes also triggers the **Low Edge Density** check (< 1.5%).
+
+#### 3. Bad Frame (Gradient/Waves)
+| Original Frame | What pHash Sees |
+| :---: | :---: |
+| ![Waves](assets/waves.webp) | ![Waves pHash](assets/waves_phash.webp) |
+
+**Reason: Low Structural Complexity.**
+While this image might pass basic variance checks, it relies on simple gradients. Gradients often result in **Low Edge Density** because they lack sharp transitions. This makes the fingerprint unstable and prone to matching other generic scenes.
+
+#### 4. Bad Frame (Low Texture)
+| Original Frame | What pHash Sees |
+| :---: | :---: |
+| ![Betrayal](assets/betrayal.webp) | ![Betrayal pHash](assets/betrayal_phash.webp) |
+
+**Reason: Low AC Energy.**
+The image is blurry and washed out. It fails the **AC Energy** check (< 10%) because the signal is dominated by the average background color (DC component) rather than distinct structural details (AC components).
 
 **Always choose a frame with clear shapes, high contrast, and distinct objects.**
 

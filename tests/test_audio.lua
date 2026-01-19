@@ -38,7 +38,7 @@ function TestAudio:test_process_audio_sine_1000hz()
     lu.assertTrue(count > 0)
 
     -- Check if the peak is consistent with 1000Hz.
-    -- We can't easily reverse hash to freq without re-implementing logic, 
+    -- We can't easily reverse hash to freq without re-implementing logic,
     -- but we can check if it returns hashes at all.
     -- The hash contains (f1, f2, dt).
     -- Since it's a pure sine wave, f1 and f2 should be roughly the same frequency bin.

@@ -39,7 +39,7 @@ local function get_peaks(magnitudes, freq_bin_count, threshold_sq)
         sorted[i] = { idx = p, mag = magnitudes[p] }
     end
     table.sort(sorted, function(a, b) return a.mag > b.mag end)
-    
+
     local top_peaks = {}
     for i = 1, 5 do
         top_peaks[i] = sorted[i].idx
@@ -190,7 +190,7 @@ function M.validate_audio(pcm_str)
         -- FFI Path
         num_samples = math.floor(#pcm_str / 2)
         local ptr = utils.ffi.cast("int16_t*", pcm_str)
-        
+
         for i = 0, num_samples - 1 do
             local val = ptr[i] / 32768.0
             sum_sq = sum_sq + (val * val)
@@ -207,7 +207,7 @@ function M.validate_audio(pcm_str)
             local val = b1 + b2 * 256
             if val > 32767 then val = val - 65536 end
             val = val / 32768.0
-            
+
             sum_sq = sum_sq + (val * val)
             if val ~= 0 then
                 non_zero_count = non_zero_count + 1
@@ -247,7 +247,7 @@ function M.process_audio_data(pcm_str)
         local spectrogram = {}
         local samples = {}
         local num_samples_raw = math.floor(#pcm_str / 2)
-        
+
         -- Convert s16le string to samples (Direct Indexing)
         for i = 0, num_samples_raw - 1 do
             local base = i * 2 + 1
@@ -267,7 +267,7 @@ function M.process_audio_data(pcm_str)
         local hann = cache.hann
         local real_buf = {}
         local imag_buf = {}
-        
+
         local threshold_sq = config.options.audio_threshold * config.options.audio_threshold
         local spec_count = 0
 

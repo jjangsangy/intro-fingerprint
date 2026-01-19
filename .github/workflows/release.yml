@@ -18,11 +18,11 @@ jobs:
         run: |
           mkdir -p staging/scripts/intro-fingerprint
           mkdir -p staging/script-opts
-          
+
           # Copy main script and modules to the script-specific subdirectory
           cp main.lua staging/scripts/intro-fingerprint/
           cp -r modules staging/scripts/intro-fingerprint/
-          
+
           # Copy config to script-opts
           cp intro-fingerprint.conf staging/script-opts/
 

@@ -92,7 +92,7 @@ function TestFFTPerf:test_perf_comparison()
     -- Based on expected performance difference due to caching.
     local is_jit = type(jit) == 'table'
     local threshold = is_jit and 5.0 or 2.0
-    
+
     if is_jit then
         print(string.format("Running on LuaJIT: Using stricter threshold %.1fx", threshold))
     else

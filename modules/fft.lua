@@ -83,7 +83,7 @@ function M.fft_lua_optimized(re, im, n)
     local t_im = cache.twiddles_im
     local z_re = cache.work_re
     local z_im = cache.work_im
-    
+
     -- Current input/output arrays
     -- We switch references between (re, im) and (z_re, z_im)
     local x_re, x_im = re, im
@@ -120,7 +120,7 @@ function M.fft_lua_optimized(re, im, n)
 
     while l <= n_quarter do
         local m = n / (4 * l)
-        
+
         if l == 1 then
             -- Optimized Radix-4 for l=1 (no twiddles, m iterations)
             local dst = 1
@@ -152,20 +152,20 @@ function M.fft_lua_optimized(re, im, n)
                 y_im[dst + 2] = a02i - a13i
                 y_re[dst + 3] = s02r - s13i
                 y_im[dst + 3] = s02i + s13r
-                
+
                 dst = dst + 4
             end
         else
             -- General Radix-4 Step
             -- Outer loop runs 'm' times
             -- Inner loop runs 'l' times (j=1 to l-1) plus separate j=0
-            
+
             -- Pointers for incremental updates
             -- base_i corresponds to k*l (0-based) -> k*l + 1 (1-based)
             -- base_z corresponds to 4*k*l (0-based) -> 4*k*l + 1 (1-based)
             local base_i_1 = 1
             local base_z_1 = 1
-            
+
             local stride_i = l
             local stride_z = 4 * l
 
@@ -209,10 +209,10 @@ function M.fft_lua_optimized(re, im, n)
                 local w_idx1 = tw_step1
                 local w_idx2 = tw_step2
                 local w_idx3 = tw_step3
-                
+
                 local src_ptr = base_i_1 + 1
                 local dst_ptr = base_z_1 + 1
-                
+
                 for j = 1, l - 1 do
                     local i0 = src_ptr
                     local i1 = i0 + n_quarter
@@ -253,12 +253,12 @@ function M.fft_lua_optimized(re, im, n)
 
                     src_ptr = src_ptr + 1
                     dst_ptr = dst_ptr + 1
-                    
+
                     w_idx1 = w_idx1 + tw_step1
                     w_idx2 = w_idx2 + tw_step2
                     w_idx3 = w_idx3 + tw_step3
                 end
-                
+
                 -- Increment base pointers for next k
                 base_i_1 = base_i_1 + stride_i
                 base_z_1 = base_z_1 + stride_z

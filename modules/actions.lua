@@ -53,7 +53,7 @@ function M.capture_audio(path, time_pos)
 
     if not res_a or res_a.status ~= 0 or not res_a.stdout or #res_a.stdout == 0 then
         utils.log_info("Error capturing audio: " .. ((res_a and res_a.stderr) or "unknown"))
-        return true -- Original logic returned "Intro Captured!" even on error here, likely assuming video was enough? Or just a bug/feature. 
+        return true -- Original logic returned "Intro Captured!" even on error here, likely assuming video was enough? Or just a bug/feature.
                     -- Actually original logic: ui.show_message("Intro Captured! (Video + Audio)", 2); return
                     -- So it treated it as completion.
     end

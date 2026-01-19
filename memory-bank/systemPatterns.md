@@ -98,7 +98,7 @@ flowchart TD
 - **Validation**: Rejects low-quality frames to prevent hash collisions.
     - **Stage 1 (Spatial)**: Checks for Variance (StdDev < 10), Histogram Peak (> 70%), and Edge Density (< 1.5%).
     - **Stage 2 (DCT)**: Checks for AC/DC Energy Ratio (< 10%) and pHash Region Variance (< 50).
-- **Hashing**: 
+- **Hashing**:
     - **DCT-II**: Computes the Discrete Cosine Transform of the 32x32 image.
         - **Standard Logic**: Uses Makhoul's method (FFT-based DCT) via FFI using the optimized internal Stockham implementation.
         - **Optimized Lua Fallback**: Uses a **Partial Direct DCT** (matrix multiplication) for the pure Lua path. This computes only the first 8 coefficients for each row and column, avoiding unnecessary calculations and complex-number overhead.

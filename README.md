@@ -1,7 +1,7 @@
 # intro-fingerprint
 
 ![intro-fingerprint](assets/header.svg)
-![CI](https://github.com/jjangsangy/intro-fingerprint/actions/workflows/ci.yml/badge.svg) ![Lint](https://github.com/jjangsangy/intro-fingerprint/actions/workflows/lint.yml/badge.svg) [![GitHub release (latest by date)](https://img.shields.io/github/v/release/jjangsangy/intro-fingerprint)](https://github.com/jjangsangy/intro-fingerprint/releases/latest) [![GitHub last commit](https://img.shields.io/github/last-commit/jjangsangy/intro-fingerprint)](https://github.com/jjangsangy/intro-fingerprint/commits) [![Platform: mpv](https://img.shields.io/badge/platform-mpv-green.svg)](https://mpv.io/) [![LuaJIT Optimized](https://img.shields.io/badge/LuaJIT-Optimized-blueviolet.svg)](https://luajit.org/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
+![CI](https://github.com/jjangsangy/intro-fingerprint/actions/workflows/ci.yml/badge.svg) ![Lint](https://github.com/jjangsangy/intro-fingerprint/actions/workflows/lint.yml/badge.svg) [![GitHub release (latest by date)](https://img.shields.io/github/v/release/jjangsangy/intro-fingerprint)](https://github.com/jjangsangy/intro-fingerprint/releases/latest) [![GitHub last commit](https://img.shields.io/github/last-commit/jjangsangy/intro-fingerprint)](https://github.com/jjangsangy/intro-fingerprint/commits) [![Platform: mpv](https://img.shields.io/badge/platform-mpv-green.svg)](https://mpv.io/) [![LuaJIT Optimized](https://img.shields.io/badge/LuaJIT-Optimized-blueviolet.svg)](https://luajit.org/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 An MPV script to skip intro sequences in media by fingerprinting audio and video.
 
@@ -11,7 +11,7 @@ When you mark an intro in one episode, the script can search for that same intro
 
 - **Audio Fingerprinting**: Uses Constellation Hashing to find identical audio patterns, robust to noise and distortion. **(Recommended/Default)**
 - **Video Fingerprinting**: Uses Perceptual Hashing (pHash) to find visually similar intros.
-- **High Performance**: 
+- **High Performance**:
   - Uses **LuaJIT FFI** for zero-allocation data processing to handle large audio/video datasets efficiently.
   - Optimized **Pure-Lua Fallback** for environments without LuaJIT (e.g., some Linux builds), achieving ~2.5x faster FFTs than standard implementations.
 - **Async Execution**: Scans run in the background using mpv coroutines and async subprocesses, ensuring the player remains responsive.
@@ -131,7 +131,7 @@ The script uses two primary methods for fingerprinting:
 - **Matching**: Uses a **Global Offset Histogram**. Every match calculates $Offset = T_{file} - T_{query}$, and the script looks for the largest cluster (peak) of consistent offsets.
 - **Filtering**: Implements **Match Ratio** filtering (default 30%) to ensure the match is an exact fingerprint overlap rather than just similar-sounding music.
 - **Search Strategy**: **Concurrent Linear Scan**. The timeline is divided into contiguous segments (e.g., 10s). Each segment is processed by a concurrent worker with sufficient padding to ensure no matches are lost at segment boundaries. Hashes are filtered to prevent double-counting in overlapping regions.
-- **Optimization**: 
+- **Optimization**:
     - **Concurrency**: Launches multiple parallel FFmpeg workers to utilize all CPU cores.
     - **Inverted Index**: Uses an $O(1)$ hash-map for near-instant lookup of fingerprints during the scan.
     - **Optimal Stopping**: Scans terminate immediately once a high-confidence match is confirmed and the signal gradient drops.
@@ -242,11 +242,11 @@ sudo pacman -S ffmpeg
     - **Cause**: The scene is too simple (silence, black screen, featureless background) to generate a unique fingerprint.
     - **Solution**: Seek forward or backward by a few seconds to a scene with clear audio (dialogue/music) or visual detail, then press `Ctrl+i` again.
 
-- **"FFmpeg failed during scan"**: 
+- **"FFmpeg failed during scan"**:
     - **Cause**: `ffmpeg` is missing or not in system PATH.
     - **Solution**: Install FFmpeg and verify it runs from a terminal.
 
-- **No match found**: 
+- **No match found**:
     - **Video**: Try increasing `video_threshold` in config, or ensure the intro is visually identical.
     - **Audio**: Ensure the intro music is consistent. If the intro has variable music but same video, use Video Skip (`Ctrl+Shift+s`).
 

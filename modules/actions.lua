@@ -273,7 +273,7 @@ end
 function M.spawn_audio_worker(ctx, scan_time)
     ctx.active_workers = ctx.active_workers + 1
     local ffmpeg_start = mp.get_time()
-    
+
     ffmpeg.run_task('scan_audio', { start = scan_time, duration = ctx.segment_dur + ctx.padding, path = ctx.path },
         function(success, res, err)
             ctx.active_workers = ctx.active_workers - 1
@@ -363,26 +363,26 @@ function M.skip_intro_audio()
             capture_duration = capture_duration,
             path = mp.get_property("path"),
             duration = mp.get_property_number("duration") or 0,
-            
+
             global_offset_histogram = {},
             time_bin_width = 0.1,
             factor = config.options.audio_hop_size / config.options.audio_sample_rate,
-            
+
             segment_dur = config.options.audio_segment_duration,
             padding = math.ceil(config.options.audio_target_t_max * config.options.audio_hop_size / config.options.audio_sample_rate) + 1.0,
-            
+
             active_workers = 0,
             max_workers = config.options.audio_concurrency,
             results_buffer = {},
             stop_flag = false,
             previous_local_max = 0,
             header_printed = false,
-            
+
             perf_stats = { ffmpeg = 0, lua = 0 },
             scan_start_time = mp.get_time(),
             co = coroutine.running()
         }
-        
+
         local max_scan_time = math.min(ctx.duration, config.options.audio_scan_limit)
         local next_scan_time = 0
         local last_processed_time = -ctx.segment_dur

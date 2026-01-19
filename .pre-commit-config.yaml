@@ -1,0 +1,15 @@
+repos:
+  - repo: local
+    hooks:
+      - id: tests
+        name: Run Tests
+        entry: lua tests/run_tests.lua
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: lint
+        name: Lua Language Server Lint
+        entry: lua-language-server --check=. --checklevel=Warning --check_format=pretty
+        language: system
+        pass_filenames: false
+        always_run: true

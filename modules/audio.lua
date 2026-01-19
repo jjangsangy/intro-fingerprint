@@ -82,7 +82,6 @@ local function generate_hashes(spectrogram)
     return hashes
 end
 
-
 --- FFI version of get_peaks
 -- @param mags cdata - Pointer to magnitude array
 -- @param row_ptr cdata - Pointer to the destination row in the flattened peaks array

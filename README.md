@@ -161,6 +161,32 @@ To prevent false positives and wasted scans, the script validates media quality 
     - **Low AC Energy**: Frame lacks texture/contrast (< 10%).
     - **Low pHash Variance**: DCT low-frequencies are too uniform (< 50).
 
+### Understanding Frame Rejection
+
+To ensure robust matching, the system rejects frames that lack distinct **low-frequency structural information**. This includes:
+
+1.  **Low Variance Scenes**: Solid colors, black screens, or smooth gradients. These contain almost no information, making the hash purely random noise.
+2.  **High-Frequency Chaos**: Dense text, intricate line art, starfields, or visual static.
+
+#### **Why?**
+
+Perceptual Hashing (pHash) works by "squinting" at the image—resizing it to a tiny 32x32 thumbnail and analyzing the broad strokes of light and dark (low frequencies).
+-   If an image is **too simple** (solid color), the thumbnail is featureless.
+-   If an image is **too complex** (dense text), the fine details disappear when resized, leaving a featureless gray blob.
+
+| Type                                  |          Original Frame           |       What pHash Sees (32x32 Grayscale)       |
+| :------------------------------------ | :-------------------------------: | :-------------------------------------------: |
+| **Good Frame**<br>(Accepted)          | ![Accepted](assets/accepted.webp) | ![Accepted pHash](assets/accepted_phash.webp) |
+| **Bad Frame**<br>(Noisy/Low-Contrast) | ![Rejected](assets/rejected.webp) | ![Rejected pHash](assets/rejected_phash.webp) |
+| **Bad Frame**<br>(Soft/Clouds)        |   ![Clouds](assets/clouds.webp)   |   ![Clouds pHash](assets/clouds_phash.webp)   |
+
+The difference is clear when looking at what pHash actually sees:
+-   **Accepted**: The image has **high contrast and distinct structure**. You can clearly see a bright central column separated from darker regions. These "bones" of the image remain stable even after resizing and compression.
+-   **Rejected**: The image is **low contrast and indistinct**. It lacks strong geometric shapes or clear edges, appearing as a noisy, washed-out blur. Without strong structural features, the hash becomes dominated by random noise, making it unstable.
+-   **Clouds**: The image is **soft and gradient-heavy**. While there is some contrast, the lack of sharp edges or distinct shapes means the hash will be unstable. Soft transitions are easily affected by minor compression or lighting changes.
+
+**Always choose a frame with clear shapes, high contrast, and distinct objects.**
+
 If you encounter these errors, try moving the playback position slightly forward or backward to a more complex part of the intro (e.g., a scene with action or music).
 
 # Performance & Technical Details

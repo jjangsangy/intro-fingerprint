@@ -12,12 +12,12 @@ TestActions = {}
 function TestActions:mock(module, name, fn)
     self.mocks = self.mocks or {}
     self.mocks[module] = self.mocks[module] or {}
-    
+
     -- Only save original once
     if not self.mocks[module][name] then
         self.mocks[module][name] = module[name]
     end
-    
+
     module[name] = fn
 end
 
@@ -42,6 +42,14 @@ function TestActions:setUp()
     mp.set_property("time-pos", 100)
     mp.set_property("duration", 200)
 
+    -- Store original filenames
+    self.orig_video_filename = config.options.video_temp_filename
+    self.orig_audio_filename = config.options.audio_temp_filename
+
+    -- Set test filenames
+    config.options.video_temp_filename = "test_mpv_intro_skipper_video.dat"
+    config.options.audio_temp_filename = "test_mpv_intro_skipper_audio.dat"
+
     -- Create dummy fingerprint files if needed
     self.v_path = fingerprint_io.get_video_fingerprint_path()
     self.a_path = fingerprint_io.get_audio_fingerprint_path()
@@ -55,6 +63,10 @@ function TestActions:tearDown()
     os.remove(self.v_path)
     os.remove(self.a_path)
     mp._command_returns = {}
+
+    -- Restore original filenames
+    config.options.video_temp_filename = self.orig_video_filename
+    config.options.audio_temp_filename = self.orig_audio_filename
 end
 
 function TestActions:test_save_intro_no_video()
@@ -161,12 +173,12 @@ function TestActions:test_capture_video_success()
     local t = {}
     for i=1, 1024 do table.insert(t, string.char(math.random(0, 255))) end
     local dummy_frame = table.concat(t)
-    
+
     mp._command_returns["subprocess"] = { status=0, stdout=dummy_frame }
 
     local res = actions.capture_video("test.mkv", 100)
     lu.assertTrue(res)
-    
+
     -- Check file created
     local f = io.open(self.v_path, "rb")
     lu.assertTrue(f ~= nil)
@@ -191,12 +203,12 @@ function TestActions:test_capture_audio_success()
         table.insert(t, string.char(b1, b2))
     end
     local valid_pcm = table.concat(t)
-    
+
     mp._command_returns["subprocess"] = { status=0, stdout=valid_pcm }
-    
+
     local res = actions.capture_audio("test.mkv", 100)
     lu.assertTrue(res)
-    
+
     -- Check file created
     local f = io.open(self.a_path, "rb")
     lu.assertTrue(f ~= nil)
@@ -212,9 +224,9 @@ function TestActions:test_process_hash_match()
         global_offset_histogram = {}
     }
     local local_histogram = {}
-    
+
     actions.process_hash_match(ctx, 123, 1.0, 100.0, local_histogram)
-    
+
     local bin = math.floor(91.0 / 0.1 + 0.5)
     lu.assertEquals(ctx.global_offset_histogram[bin], 1)
     lu.assertEquals(local_histogram[bin], 1)
@@ -227,9 +239,9 @@ function TestActions:test_check_early_stop()
     }
     config.options.audio_threshold = 10
     config.options.audio_min_match_ratio = 0.1
-    
+
     actions.check_early_stop(ctx, 40, 200.0, 0.5)
-    
+
     lu.assertTrue(ctx.stop_flag)
 end
 
@@ -239,9 +251,9 @@ function TestActions:test_check_early_stop_no_drop()
         stop_flag = false
     }
     config.options.audio_threshold = 10
-    
+
     actions.check_early_stop(ctx, 80, 200.0, 0.5)
-    
+
     lu.assertFalse(ctx.stop_flag)
 end
 
@@ -260,9 +272,9 @@ function TestActions:test_capture_audio_low_complexity()
     local valid_pcm = table.concat(t)
 
     mp._command_returns["subprocess"] = { status=0, stdout=valid_pcm }
-    
+
     local res = actions.capture_audio("test.mkv", 100)
-    
+
     lu.assertFalse(res)
     lu.assertStrContains(mp._messages[1], "Low Complexity")
 end
@@ -271,7 +283,7 @@ function TestActions:test_capture_audio_short_duration()
     config.options.audio_fingerprint_duration = 20
     -- time_pos 15 means start=0, dur=15. If we set time_pos=0.5...
     -- capture_audio checks dur_a <= 1
-    
+
     local res = actions.capture_audio("test.mkv", 0.5)
     lu.assertTrue(res) -- Returns true but does nothing
     -- Should not have called subprocess
@@ -285,12 +297,12 @@ end
 function TestActions:test_skip_intro_video_no_file()
     -- Ensure no fingerprint file
     if os.remove then os.remove(self.v_path) end
-    
+
     actions.skip_intro_video()
-    
+
     -- Async runs immediately in test environment usually but here it's utils.run_async
     mp._process_async_callbacks()
-    
+
     lu.assertStrContains(mp._messages[1], "No intro captured")
 end
 
@@ -300,32 +312,32 @@ function TestActions:test_skip_intro_video_no_match()
     for i=1, 1024 do table.insert(t, string.char(math.random(0, 255))) end
     local dummy_frame = table.concat(t)
     fingerprint_io.write_video(50.0, dummy_frame)
-    
+
     -- Mock scan result with mismatch (different frame)
     local t2 = {}
     for i=1, 1024 do table.insert(t2, string.char(math.random(0, 255))) end
     local mismatch_frame = table.concat(t2)
-    
+
     mp._command_returns["subprocess"] = {
         status = 0,
         stdout = mismatch_frame
     }
-    
+
     -- Limit loop for test
     local orig_max = config.options.video_max_search_window
     config.options.video_max_search_window = config.options.video_search_window + 10
-    
+
     actions.skip_intro_video()
-    
+
     local max_iters = 20
     local i = 0
     while #mp._async_callbacks > 0 and i < max_iters do
         mp._process_async_callbacks()
         i = i + 1
     end
-    
+
     config.options.video_max_search_window = orig_max
-    
+
     local found_no_match = false
     for _, msg in ipairs(mp._messages) do
         if string.find(msg, "No match found") then found_no_match = true end
@@ -364,15 +376,15 @@ function TestActions:test_skip_intro_audio_match()
 
     config.options.audio_threshold = 10
     config.options.audio_min_match_ratio = 0.4
-    
+
     actions.skip_intro_audio()
-    
+
     local i = 0
     while #mp._async_callbacks > 0 and i < 50 do
         mp._process_async_callbacks()
         i = i + 1
     end
-    
+
     local skipped = false
     for _, msg in ipairs(mp._messages) do
         if string.find(msg, "Skipped!") then skipped = true end
@@ -392,15 +404,15 @@ function TestActions:test_skip_intro_audio_no_match()
     mp._command_returns["subprocess"] = {status=0, stdout="NOPE"}
 
     config.options.audio_scan_limit = 60 -- limit scan to 60s
-    
+
     actions.skip_intro_audio()
-    
+
     local i = 0
     while #mp._async_callbacks > 0 and i < 100 do
         mp._process_async_callbacks()
         i = i + 1
     end
-    
+
     local no_match = false
     for _, msg in ipairs(mp._messages) do
         if string.find(msg, "No match") then no_match = true end

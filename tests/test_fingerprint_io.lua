@@ -8,6 +8,15 @@ TestFingerprintIO = {}
 
 function TestFingerprintIO:setUp()
     mp._log = {}
+
+    -- Store original filenames
+    self.orig_video_filename = config.options.video_temp_filename
+    self.orig_audio_filename = config.options.audio_temp_filename
+
+    -- Set test filenames
+    config.options.video_temp_filename = "test_mpv_intro_skipper_video.dat"
+    config.options.audio_temp_filename = "test_mpv_intro_skipper_audio.dat"
+
     -- Cleanup any files
     os.remove(fingerprint_io.get_video_fingerprint_path())
     os.remove(fingerprint_io.get_audio_fingerprint_path())
@@ -16,6 +25,10 @@ end
 function TestFingerprintIO:tearDown()
     os.remove(fingerprint_io.get_video_fingerprint_path())
     os.remove(fingerprint_io.get_audio_fingerprint_path())
+
+    -- Restore original filenames
+    config.options.video_temp_filename = self.orig_video_filename
+    config.options.audio_temp_filename = self.orig_audio_filename
 end
 
 function TestFingerprintIO:test_paths()

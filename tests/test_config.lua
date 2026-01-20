@@ -10,7 +10,7 @@ function TestConfig:test_defaults()
 end
 
 function TestConfig:test_video_phash_size()
-    lu.assertEquals(config.options.video_phash_size, 32)
+    lu.assertEquals(config.options.video_phash_size, 64)
     -- Verify derived constant
-    lu.assertEquals(config.VIDEO_FRAME_SIZE, 32 * 32)
+    lu.assertEquals(config.VIDEO_FRAME_SIZE, 64 * 64)
 end

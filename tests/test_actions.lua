@@ -79,7 +79,7 @@ function TestActions:test_save_intro_success()
     -- Mock video extraction result
     -- Random noise to ensure variance check passes
     local t = {}
-    for i=1, 1024 do table.insert(t, string.char(math.random(0, 255))) end
+    for i=1, 4096 do table.insert(t, string.char(math.random(0, 255))) end
     local dummy_frame = table.concat(t)
 
     -- Mock audio extraction result
@@ -142,7 +142,7 @@ end
 function TestActions:test_skip_intro_video_match()
     -- Create random frame for perfect match
     local t = {}
-    for i=1, 1024 do table.insert(t, string.char(math.random(0, 255))) end
+    for i=1, 4096 do table.insert(t, string.char(math.random(0, 255))) end
     local dummy_frame = table.concat(t)
 
     -- Create a fingerprint file
@@ -171,7 +171,7 @@ end
 function TestActions:test_capture_video_success()
     -- Generate dummy video data (grayscale)
     local t = {}
-    for i=1, 1024 do table.insert(t, string.char(math.random(0, 255))) end
+    for i=1, 4096 do table.insert(t, string.char(math.random(0, 255))) end
     local dummy_frame = table.concat(t)
 
     mp._command_returns["subprocess"] = { status=0, stdout=dummy_frame }
@@ -309,13 +309,13 @@ end
 function TestActions:test_skip_intro_video_no_match()
     -- Create random frame
     local t = {}
-    for i=1, 1024 do table.insert(t, string.char(math.random(0, 255))) end
+    for i=1, 4096 do table.insert(t, string.char(math.random(0, 255))) end
     local dummy_frame = table.concat(t)
     fingerprint_io.write_video(50.0, dummy_frame)
 
     -- Mock scan result with mismatch (different frame)
     local t2 = {}
-    for i=1, 1024 do table.insert(t2, string.char(math.random(0, 255))) end
+    for i=1, 4096 do table.insert(t2, string.char(math.random(0, 255))) end
     local mismatch_frame = table.concat(t2)
 
     mp._command_returns["subprocess"] = {

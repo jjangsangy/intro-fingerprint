@@ -1,8 +1,8 @@
 local mp = require 'mp'
 local config = require 'modules.config'
 local utils = require 'modules.utils'
-local fft = require 'modules.fft'
 local ffmpeg = require 'modules.ffmpeg'
+local pdq_matrix = require 'modules.pdq_matrix'
 
 local M = {}
 
@@ -18,161 +18,292 @@ for i = 0, 255 do
     POPCOUNT_TABLE[i] = c
 end
 
---- Perform 1D DCT-II using Makhoul's reordering and FFT
--- @param input_ptr cdata - Input data array
--- @param n number - Size of the DCT
--- @param output_ptr cdata - Output data array (modified in-place)
--- @param method string - FFT method to use ("lua" or "stockham")
--- @param ctx table - Context containing temporary buffers
--- @note Used as the basis for the pHash calculation
-local function dct_1d_makhoul_ffi(input_ptr, n, output_ptr, method, ctx)
-    local real = ctx.real
-    local imag = ctx.imag
+local BUFFER_W_H = 64
+local DCT_OUTPUT_W_H = 16
+local DCT_OUTPUT_MATRIX_SIZE = DCT_OUTPUT_W_H * DCT_OUTPUT_W_H -- 256
+local HASH_LENGTH = 32 -- 256 bits = 32 bytes
 
-    -- 1. Construct v[n] (Makhoul's reordering)
-    local half_n = math.floor(n / 2)
-    for i = 0, half_n - 1 do
-        real[i] = input_ptr[2 * i]
-    end
-    for i = 0, half_n - 1 do
-        real[half_n + i] = input_ptr[n - 1 - 2 * i]
-    end
-    for i = 0, n - 1 do imag[i] = 0.0 end
+local DCT_MATRIX = pdq_matrix.DCT_MATRIX
 
-    -- 2. Compute FFT
-    if method == "lua" then
-        local l_re, l_im = ctx.l_re, ctx.l_im
-        for i = 0, n - 1 do
-            l_re[i + 1], l_im[i + 1] = tonumber(real[i]), tonumber(imag[i])
-        end
-        fft.fft_lua_optimized(l_re, l_im, n)
-        for i = 0, n - 1 do
-            real[i], imag[i] = l_re[i + 1], l_im[i + 1]
-        end
-    else -- stockham
-        fft.fft_stockham(real, imag, ctx.wr, ctx.wi, n)
-    end
+-- Cache DCT rows for pure Lua performance
+local DCT_ROWS = {}
+for i = 1, DCT_OUTPUT_W_H do
+    DCT_ROWS[i] = DCT_MATRIX[i]
+end
 
-    -- 3. Phase correction & Orthogonal Scaling
-    local pi_over_2n = math.pi / (2 * n)
-    local scale_ac = math.sqrt(2.0 / n)
-    local scale_dc = math.sqrt(1.0 / n)
+-- Cache FFI C types/variables if available
+local ffi_dct_matrix
+local ffi_float_arr
+local ffi_byte_arr
+local ffi_double_arr
 
-    for k = 0, n - 1 do
-        local angle = k * pi_over_2n
-        local val = 2.0 * (real[k] * math.cos(angle) + imag[k] * math.sin(angle))
-        if k == 0 then
-            output_ptr[k] = val * scale_dc
-        else
-            output_ptr[k] = val * scale_ac
+if utils.ffi_status then
+    local ffi = utils.ffi
+    -- Create flat DCT matrix for FFI
+    ffi_dct_matrix = ffi.new("float[?]", DCT_OUTPUT_W_H * BUFFER_W_H)
+    for i = 0, DCT_OUTPUT_W_H - 1 do
+        for j = 0, BUFFER_W_H - 1 do
+            ffi_dct_matrix[i * BUFFER_W_H + j] = DCT_MATRIX[i + 1][j + 1]
         end
     end
 end
 
---- @table phash_ctx_cache_ffi Cache for FFI-based pHash context
-local phash_ctx_cache_ffi = {}
-
---- @table phash_lua_context Context and buffers for pure Lua pHash implementation
-local phash_lua_context = {
-    dct_matrix = nil,
-    row_temp = {},
-    data = {},
-    values_flat = {}
-}
-
---- Initialize the DCT matrix for pure Lua pHash
--- @note Uses matrix multiplication for Partial Direct DCT to improve performance in non-FFI environments
-local function init_phash_lua_dct_matrix()
-    if phash_lua_context.dct_matrix then return end
-    local matrix = {}
-    local N = 32
-    local scale_dc = math.sqrt(1.0 / N)
-    local scale_ac = math.sqrt(2.0 / N)
-    for k = 0, 7 do
-        matrix[k + 1] = {}
-        local scale = (k == 0) and scale_dc or scale_ac
-        for n = 0, N - 1 do
-            local angle = (math.pi / N) * (n + 0.5) * k
-            matrix[k + 1][n + 1] = scale * math.cos(angle)
-        end
+--- Calculate Median of a table
+-- @param t table - Array of numbers
+-- @return number - Median value
+local function calculate_median(t)
+    table.sort(t)
+    local len = #t
+    if len % 2 == 0 then
+        return (t[len / 2] + t[len / 2 + 1]) / 2
+    else
+        return t[math.ceil(len / 2)]
     end
-    phash_lua_context.dct_matrix = matrix
-    for x = 1, 8 do
-        phash_lua_context.row_temp[x] = {}
-        for y = 1, 32 do phash_lua_context.row_temp[x][y] = 0 end
-    end
-    for i = 1, 1024 do phash_lua_context.data[i] = 0 end
-    for i = 1, 64 do phash_lua_context.values_flat[i] = 0 end
 end
 
---- Compute 32x32 DCT using FFI (Helper)
--- @param bytes_ptr cdata - Pointer to raw grayscale image data
+--- Compute PDQ Hash using FFI
+-- @param bytes_ptr cdata - Pointer to raw grayscale image data (64x64)
 -- @param start_index number - Offset
--- @return cdata - Pointer to 1024 doubles (DCT coefficients)
-local function compute_dct_32_ffi(bytes_ptr, start_index)
-    local n = 32
-    local data = utils.ffi.new("double[1024]")
-    local sum = 0
-    for i = 0, 1023 do
-        local val = bytes_ptr[start_index + i]
-        data[i] = val
-        sum = sum + val
-    end
-    local mean = sum / 1024
-    for i = 0, 1023 do data[i] = data[i] - mean end
+-- @return table - 32-byte hash as an array of numbers (0-255)
+local function compute_pdq_hash_ffi(bytes_ptr, start_index)
+    local ffi = utils.ffi
 
-    if not phash_ctx_cache_ffi[n] then
-        phash_ctx_cache_ffi[n] = {
-            real = utils.ffi.new("double[?]", n),
-            imag = utils.ffi.new("double[?]", n),
-            wr = utils.ffi.new("double[?]", n),
-            wi = utils.ffi.new("double[?]", n),
-            l_re = {},
-            l_im = {}
-        }
-    end
-    local ctx = phash_ctx_cache_ffi[n]
+    -- 1. Convert Input to Float (64x64)
+    -- We process column-wise for the first multiplication if we want to match Rust loops:
+    -- Rust: intermediate[i][j] = sum(DCT[i][k] * input[k][j])
+    -- Input is typically row-major [y][x]. input[k][j] means row k, col j.
 
-    local method = "stockham"
-    local tmp_in, tmp_out = utils.ffi.new("double[32]"), utils.ffi.new("double[32]")
-    -- Rows
-    for y = 0, 31 do
-        local offset = y * 32
-        for x = 0, 31 do tmp_in[x] = data[offset + x] end
-        dct_1d_makhoul_ffi(tmp_in, 32, tmp_out, method, ctx)
-        for x = 0, 31 do data[offset + x] = tmp_out[x] end
-    end
-    -- Cols
-    for x = 0, 31 do
-        for y = 0, 31 do tmp_in[y] = data[y * 32 + x] end
-        dct_1d_makhoul_ffi(tmp_in, 32, tmp_out, method, ctx)
-        for y = 0, 31 do data[y * 32 + x] = tmp_out[y] end
-    end
-    return data
-end
+    -- Intermediate buffer: 16x64 (1024 floats)
+    local intermediate = ffi.new("float[1024]")
 
---- Compute a 32x32 pHash using FFI
--- @param bytes_ptr cdata - Pointer to raw grayscale image data
--- @param start_index number - Offset in the buffer to start reading
--- @return table - 8-byte hash as an array of numbers
--- @note Performs 2D DCT and extracts low-frequency coefficients to generate a 64-bit hash
-function M.compute_phash_32_ffi(bytes_ptr, start_index)
-    local data = compute_dct_32_ffi(bytes_ptr, start_index)
+    -- Step 1: Intermediate = DCT * Input
+    -- DCT is 16x64. Input is 64x64.
+    -- intermediate[i][j] (16x64)
 
-    local values = {}
-    local total_sum = 0
-    for y = 0, 7 do
-        for x = 0, 7 do
-            local val = data[y * 32 + x]
-            table.insert(values, val)
-            total_sum = total_sum + val
+    for i = 0, DCT_OUTPUT_W_H - 1 do -- 0..15
+        local dct_row_offset = i * BUFFER_W_H
+        for j = 0, BUFFER_W_H - 1 do -- 0..63
+            local sum = 0.0
+            for k = 0, BUFFER_W_H - 1 do -- 0..63
+                -- DCT[i][k] * Input[k][j]
+                -- Input is row-major: index = k * 64 + j
+                local val = bytes_ptr[start_index + k * BUFFER_W_H + j]
+                sum = sum + ffi_dct_matrix[dct_row_offset + k] * val
+            end
+            intermediate[i * BUFFER_W_H + j] = sum
         end
     end
-    local mean_threshold = total_sum / 64
 
-    local hash = { 0, 0, 0, 0, 0, 0, 0, 0 }
-    for i = 0, 63 do
-        if values[i + 1] > mean_threshold then
+    -- Step 2: Output = Intermediate * DCT^T
+    -- Output is 16x16 (256 floats)
+    -- output[i][j] = sum(intermediate[i][k] * DCT[j][k])
+
+    local output_vals = {}
+
+    for i = 0, DCT_OUTPUT_W_H - 1 do -- 0..15
+        local inter_row_offset = i * BUFFER_W_H
+        for j = 0, DCT_OUTPUT_W_H - 1 do -- 0..15
+            local dct_row_offset = j * BUFFER_W_H -- This is actually row j of DCT
+            local sum = 0.0
+            for k = 0, BUFFER_W_H - 1 do -- 0..63
+                sum = sum + intermediate[inter_row_offset + k] * ffi_dct_matrix[dct_row_offset + k]
+            end
+            table.insert(output_vals, sum)
+        end
+    end
+
+    -- Step 3: Compute Median
+    local sorted_vals = {}
+    for i = 1, #output_vals do sorted_vals[i] = output_vals[i] end
+    local median = calculate_median(sorted_vals)
+
+    -- Step 4: Generate Hash (1 if > median, else 0)
+    local hash = {}
+    for i = 1, HASH_LENGTH do hash[i] = 0 end
+
+    for i = 0, DCT_OUTPUT_MATRIX_SIZE - 1 do
+        if output_vals[i + 1] > median then
+            local byte_idx = math.floor(i / 8) + 1
+            local bit_idx = i % 8
+            -- PDQ Rust implementation: bit 0 is LSB or MSB?
+            -- Rust: byte |= 1 << j; where j is 0..7 loop.
+            -- hash[HASH_LENGTH - i - 1] = byte; (Wait, looking at rust code)
+            -- for i in 0..HASH_LENGTH { ... for j in 0..8 { ... 1<<j } ... }
+            -- It constructs bytes.
+            -- Let's stick to a consistent order: MSB first (bit 7 down to 0) or LSB first.
+            -- Existing pHash implementation used MSB first (1 << (7-bit_idx)).
+            -- Rust code: `byte |= 1 << j`. j goes 0..7. So input[i*8 + 0] is LSB.
+            -- To match Rust exactly might be tricky without strict ordering check.
+            -- As long as we are consistent (Reference vs Query), it works.
+            -- I'll use MSB first (1 << (7-bit_idx)) which is standard 'big-endian' bit order.
+
+            if utils.bit_status then
+                hash[byte_idx] = utils.bit.bor(hash[byte_idx], utils.bit.lshift(1, 7 - bit_idx))
+            else
+                hash[byte_idx] = hash[byte_idx] + (2 ^ (7 - bit_idx))
+            end
+        end
+    end
+
+    return hash
+end
+
+--- Compute PDQ Hash using Pure Lua
+-- @param bytes string - Raw grayscale image data
+-- @param start_index number - Offset
+-- @return table - 32-byte hash as an array of numbers
+local function compute_pdq_hash_lua(bytes, start_index)
+    -- Optimized Pure Lua implementation: A * (B * A^T)
+    -- 1. Temp = Input * DCT^T
+    -- 2. Output = DCT * Temp
+
+    -- Temp flattened: 16x64 = 1024.
+    -- Stored column-major relative to Temp (row-major relative to Temp_T).
+    -- temp[ (d-1)*64 + r + 1 ] stores Temp_T[d][r+1]
+    local temp = {}
+    -- Pre-allocate 1024 slots
+    for i = 1, 1024 do temp[i] = 0.0 end
+
+    -- Step 1: Compute Temp_T (Input * DCT^T)
+    for r = 0, BUFFER_W_H - 1 do
+        local row_offset = start_index + r * BUFFER_W_H
+        -- Read full row into table (one allocation per row)
+        local pixel_row = { string.byte(bytes, row_offset + 1, row_offset + BUFFER_W_H) }
+
+        -- Accumulators for 16 DCT rows
+        local s1, s2, s3, s4, s5, s6, s7, s8 = 0, 0, 0, 0, 0, 0, 0, 0
+        local s9, s10, s11, s12, s13, s14, s15, s16 = 0, 0, 0, 0, 0, 0, 0, 0
+
+        -- Process in chunks of 8
+        for k = 0, 56, 8 do
+            local p1, p2, p3, p4, p5, p6, p7, p8 = unpack(pixel_row, k + 1, k + 8)
+
+            -- DCT Row 1
+            local d = DCT_ROWS[1]
+            s1 = s1 + p1 * d[k + 1] + p2 * d[k + 2] + p3 * d[k + 3] + p4 * d[k + 4] +
+                      p5 * d[k + 5] + p6 * d[k + 6] + p7 * d[k + 7] + p8 * d[k + 8]
+            -- DCT Row 2
+            d = DCT_ROWS[2]
+            s2 = s2 + p1 * d[k + 1] + p2 * d[k + 2] + p3 * d[k + 3] + p4 * d[k + 4] +
+                      p5 * d[k + 5] + p6 * d[k + 6] + p7 * d[k + 7] + p8 * d[k + 8]
+            -- DCT Row 3
+            d = DCT_ROWS[3]
+            s3 = s3 + p1 * d[k + 1] + p2 * d[k + 2] + p3 * d[k + 3] + p4 * d[k + 4] +
+                      p5 * d[k + 5] + p6 * d[k + 6] + p7 * d[k + 7] + p8 * d[k + 8]
+            -- DCT Row 4
+            d = DCT_ROWS[4]
+            s4 = s4 + p1 * d[k + 1] + p2 * d[k + 2] + p3 * d[k + 3] + p4 * d[k + 4] +
+                      p5 * d[k + 5] + p6 * d[k + 6] + p7 * d[k + 7] + p8 * d[k + 8]
+            -- DCT Row 5
+            d = DCT_ROWS[5]
+            s5 = s5 + p1 * d[k + 1] + p2 * d[k + 2] + p3 * d[k + 3] + p4 * d[k + 4] +
+                      p5 * d[k + 5] + p6 * d[k + 6] + p7 * d[k + 7] + p8 * d[k + 8]
+            -- DCT Row 6
+            d = DCT_ROWS[6]
+            s6 = s6 + p1 * d[k + 1] + p2 * d[k + 2] + p3 * d[k + 3] + p4 * d[k + 4] +
+                      p5 * d[k + 5] + p6 * d[k + 6] + p7 * d[k + 7] + p8 * d[k + 8]
+            -- DCT Row 7
+            d = DCT_ROWS[7]
+            s7 = s7 + p1 * d[k + 1] + p2 * d[k + 2] + p3 * d[k + 3] + p4 * d[k + 4] +
+                      p5 * d[k + 5] + p6 * d[k + 6] + p7 * d[k + 7] + p8 * d[k + 8]
+            -- DCT Row 8
+            d = DCT_ROWS[8]
+            s8 = s8 + p1 * d[k + 1] + p2 * d[k + 2] + p3 * d[k + 3] + p4 * d[k + 4] +
+                      p5 * d[k + 5] + p6 * d[k + 6] + p7 * d[k + 7] + p8 * d[k + 8]
+            -- DCT Row 9
+            d = DCT_ROWS[9]
+            s9 = s9 + p1 * d[k + 1] + p2 * d[k + 2] + p3 * d[k + 3] + p4 * d[k + 4] +
+                      p5 * d[k + 5] + p6 * d[k + 6] + p7 * d[k + 7] + p8 * d[k + 8]
+            -- DCT Row 10
+            d = DCT_ROWS[10]
+            s10 = s10 + p1 * d[k + 1] + p2 * d[k + 2] + p3 * d[k + 3] + p4 * d[k + 4] +
+                        p5 * d[k + 5] + p6 * d[k + 6] + p7 * d[k + 7] + p8 * d[k + 8]
+            -- DCT Row 11
+            d = DCT_ROWS[11]
+            s11 = s11 + p1 * d[k + 1] + p2 * d[k + 2] + p3 * d[k + 3] + p4 * d[k + 4] +
+                        p5 * d[k + 5] + p6 * d[k + 6] + p7 * d[k + 7] + p8 * d[k + 8]
+            -- DCT Row 12
+            d = DCT_ROWS[12]
+            s12 = s12 + p1 * d[k + 1] + p2 * d[k + 2] + p3 * d[k + 3] + p4 * d[k + 4] +
+                        p5 * d[k + 5] + p6 * d[k + 6] + p7 * d[k + 7] + p8 * d[k + 8]
+            -- DCT Row 13
+            d = DCT_ROWS[13]
+            s13 = s13 + p1 * d[k + 1] + p2 * d[k + 2] + p3 * d[k + 3] + p4 * d[k + 4] +
+                        p5 * d[k + 5] + p6 * d[k + 6] + p7 * d[k + 7] + p8 * d[k + 8]
+            -- DCT Row 14
+            d = DCT_ROWS[14]
+            s14 = s14 + p1 * d[k + 1] + p2 * d[k + 2] + p3 * d[k + 3] + p4 * d[k + 4] +
+                        p5 * d[k + 5] + p6 * d[k + 6] + p7 * d[k + 7] + p8 * d[k + 8]
+            -- DCT Row 15
+            d = DCT_ROWS[15]
+            s15 = s15 + p1 * d[k + 1] + p2 * d[k + 2] + p3 * d[k + 3] + p4 * d[k + 4] +
+                        p5 * d[k + 5] + p6 * d[k + 6] + p7 * d[k + 7] + p8 * d[k + 8]
+            -- DCT Row 16
+            d = DCT_ROWS[16]
+            s16 = s16 + p1 * d[k + 1] + p2 * d[k + 2] + p3 * d[k + 3] + p4 * d[k + 4] +
+                        p5 * d[k + 5] + p6 * d[k + 6] + p7 * d[k + 7] + p8 * d[k + 8]
+        end
+
+        -- Write to temp
+        local r_idx = r + 1
+        temp[r_idx] = s1
+        temp[64 + r_idx] = s2
+        temp[128 + r_idx] = s3
+        temp[192 + r_idx] = s4
+        temp[256 + r_idx] = s5
+        temp[320 + r_idx] = s6
+        temp[384 + r_idx] = s7
+        temp[448 + r_idx] = s8
+        temp[512 + r_idx] = s9
+        temp[576 + r_idx] = s10
+        temp[640 + r_idx] = s11
+        temp[704 + r_idx] = s12
+        temp[768 + r_idx] = s13
+        temp[832 + r_idx] = s14
+        temp[896 + r_idx] = s15
+        temp[960 + r_idx] = s16
+    end
+
+    -- Step 2: Compute Output (DCT * Temp)
+    -- Initialize output_vals
+    local output_vals = {}
+    for i = 1, 256 do output_vals[i] = 0.0 end
+
+    -- Optimization: Iterate j (cols of Temp) then k (chunks) then i (rows of DCT).
+    -- This allows unpacking Temp values once and reusing them for all DCT rows.
+    for j = 1, DCT_OUTPUT_W_H do
+        local temp_base = (j - 1) * 64
+
+        for k_chunk = 0, 56, 8 do
+            local t1, t2, t3, t4, t5, t6, t7, t8 = unpack(temp, temp_base + k_chunk + 1, temp_base + k_chunk + 8)
+
+            for i = 1, DCT_OUTPUT_W_H do
+                local d = DCT_ROWS[i]
+                local out_idx = (i - 1) * DCT_OUTPUT_W_H + j
+
+                output_vals[out_idx] = output_vals[out_idx] +
+                    t1 * d[k_chunk + 1] +
+                    t2 * d[k_chunk + 2] +
+                    t3 * d[k_chunk + 3] +
+                    t4 * d[k_chunk + 4] +
+                    t5 * d[k_chunk + 5] +
+                    t6 * d[k_chunk + 6] +
+                    t7 * d[k_chunk + 7] +
+                    t8 * d[k_chunk + 8]
+            end
+        end
+    end
+
+    -- Median and Hash
+    local sorted_vals = {}
+    for i = 1, 256 do sorted_vals[i] = output_vals[i] end
+    local median = calculate_median(sorted_vals)
+
+    local hash = {}
+    for i = 1, HASH_LENGTH do hash[i] = 0 end
+
+    for i = 0, DCT_OUTPUT_MATRIX_SIZE - 1 do
+        if output_vals[i + 1] > median then
             local byte_idx = math.floor(i / 8) + 1
             local bit_idx = i % 8
             if utils.bit_status then
@@ -182,217 +313,17 @@ function M.compute_phash_32_ffi(bytes_ptr, start_index)
             end
         end
     end
+
     return hash
 end
 
---- Compute Partial DCT (8x8 low freq) using Lua (Helper)
--- @param bytes string - Raw grayscale image data
--- @param start_index number - Offset
--- @return table - Array of 64 coefficients
-local function compute_dct_partial_lua(bytes, start_index)
-    init_phash_lua_dct_matrix()
-    local ctx = phash_lua_context
-    local dct_mat = ctx.dct_matrix
-    if not dct_mat then return nil end
-
-    local values_flat = ctx.values_flat
-
-    local sum = 0
-    for i = 0, 1023 do
-        local val = string.byte(bytes, start_index + i + 1)
-        ctx.data[i + 1] = val
-        sum = sum + val
-    end
-    local mean = sum / 1024
-
-    for y = 0, 31 do
-        local offset = y * 32
-        for k = 1, 8 do
-            local row_sum = 0
-            local mat_row = dct_mat[k]
-            for n = 1, 32 do
-                row_sum = row_sum + (ctx.data[offset + n] - mean) * mat_row[n]
-            end
-            ctx.row_temp[k][y + 1] = row_sum
-        end
-    end
-
-    local values_idx = 1
-    for k = 1, 8 do
-        local mat_row = dct_mat[k]
-        for x = 1, 8 do
-            local col_data = ctx.row_temp[x]
-            local col_sum = 0
-            for n = 1, 32 do
-                col_sum = col_sum + col_data[n] * mat_row[n]
-            end
-            values_flat[values_idx] = col_sum
-            values_idx = values_idx + 1
-        end
-    end
-    return values_flat
-end
-
---- Compute a 32x32 pHash using pure Lua
--- @param bytes string - Raw grayscale image data
--- @param start_index number - Offset in the string to start reading
--- @return table - 8-byte hash as an array of numbers
--- @note Uses Partial Direct DCT for performance without LuaJIT FFI
-function M.compute_phash_32_lua(bytes, start_index)
-    local values_flat = compute_dct_partial_lua(bytes, start_index)
-    if not values_flat then return { 0, 0, 0, 0, 0, 0, 0, 0 } end
-
-    local total_sum = 0
-    for i = 1, 64 do
-        total_sum = total_sum + values_flat[i]
-    end
-
-    local mean_threshold = total_sum / 64
-    local hash = { 0, 0, 0, 0, 0, 0, 0, 0 }
-    for i = 0, 63 do
-        if values_flat[i + 1] > mean_threshold then
-            local byte_idx = math.floor(i / 8) + 1
-            local bit_idx = i % 8
-            if utils.bit_status then
-                hash[byte_idx] = utils.bit.bor(hash[byte_idx], utils.bit.lshift(1, 7 - bit_idx))
-            else
-                hash[byte_idx] = hash[byte_idx] + (2 ^ (7 - bit_idx))
-            end
-        end
-    end
-    return hash
-end
-
---- Validate a frame before adding to database
--- @param frame_data cdata|string - The 32x32 grayscale frame data
--- @param is_ffi boolean - Whether the data is FFI cdata
--- @return boolean, string - Valid status and rejection reason
--- @note Performs Stage 1 (Spatial) and Stage 2 (DCT) quality checks
-function M.validate_frame(frame_data, is_ffi)
-    local size = config.options.video_phash_size
-    local total_pixels = size * size
-    local ptr, get_pixel
-
-    if is_ffi then
-        ptr = frame_data
-        get_pixel = function(i) return ptr[i - 1] end
-    else
-        ptr = frame_data
-        get_pixel = function(i) return string.byte(ptr, i) end
-    end
-
-    -- Stage 1: Fast Spatial Checks
-
-    -- 1. Variance/StdDev
-    local sum = 0
-    local sum_sq = 0
-    local histogram = {}
-
-    for i = 1, total_pixels do
-        local val = get_pixel(i)
-        sum = sum + val
-        sum_sq = sum_sq + val * val
-        histogram[val] = (histogram[val] or 0) + 1
-    end
-
-    local mean = sum / total_pixels
-    local variance = (sum_sq / total_pixels) - (mean * mean)
-    -- Fix floating point precision issues
-    if variance < 0 then variance = 0 end
-    local std_dev = math.sqrt(variance)
-
-    if std_dev < 10 then return false, "Low Variance (StdDev: " .. string.format("%.1f", std_dev) .. ")" end
-
-    -- 2. Histogram Peak
-    local max_count = 0
-    for k, v in pairs(histogram) do
-        if v > max_count then max_count = v end
-    end
-    local peak_ratio = max_count / total_pixels
-    if peak_ratio > 0.70 then return false, "Dominant Color > 70%" end
-
-    -- 3. Edge Density (Simple Gradient)
-    local edge_pixels = 0
-    local edge_threshold = 20
-    for y = 0, size - 2 do
-        for x = 0, size - 2 do
-            local i = y * size + x + 1
-            local p = get_pixel(i)
-            local px = get_pixel(i + 1)
-            local py = get_pixel(i + size)
-
-            local gx = math.abs(p - px)
-            local gy = math.abs(p - py)
-            if (gx + gy) > edge_threshold then
-                edge_pixels = edge_pixels + 1
-            end
-        end
-    end
-    local edge_ratio = edge_pixels / total_pixels
-    if edge_ratio < 0.015 then return false, "Low Edge Density (< 1.5%)" end
-
-    -- Stage 2: DCT-Based Checks
-    -- Check pHash Region Variance (8x8 low-freq)
-    -- Check AC/DC Energy Ratio
-
-    -- For AC/DC Energy, we can use the spatial variance we already computed!
-    -- Total Energy = sum_sq
-    -- AC Energy = variance * total_pixels
-    -- Ratio = AC / Total
-
-    local total_energy = sum_sq
-    local ac_energy = variance * total_pixels
-    local ac_ratio = 0
-    if total_energy > 0 then
-        ac_ratio = ac_energy / total_energy
-    end
-
-    if ac_ratio < 0.10 then return false, "Low AC Energy (< 10%)" end
-
-    -- pHash Region Variance (DCT)
-    local dct_vals
-    if is_ffi then
-        local data = compute_dct_32_ffi(frame_data, 0)
-        -- Extract 8x8 block (0..7, 0..7)
-        dct_vals = {}
-        for y = 0, 7 do
-            for x = 0, 7 do
-                table.insert(dct_vals, data[y * 32 + x])
-            end
-        end
-    else
-        dct_vals = compute_dct_partial_lua(frame_data, 0)
-    end
-
-    if not dct_vals then return false, "DCT Calculation Failed" end
-
-    -- Compute variance of the 8x8 region (excluding DC at index 1)
-    local r_sum = 0
-    local r_sum_sq = 0
-    local count = 63 -- Exclude DC
-
-    for i = 2, 64 do -- Start from 2 to exclude DC
-        local v = dct_vals[i]
-        r_sum = r_sum + v
-        r_sum_sq = r_sum_sq + v * v
-    end
-
-    local r_mean = r_sum / count
-    local r_var = (r_sum_sq / count) - (r_mean * r_mean)
-
-    if r_var < 50 then return false, "Low pHash Region Variance (" .. string.format("%.1f", r_var) .. ")" end
-
-    return true, "Passed"
-end
-
---- Calculate Hamming distance between two 64-bit hashes
--- @param hash1 table - First hash (array of 8 bytes)
--- @param hash2 table - Second hash (array of 8 bytes)
--- @return number - Hamming distance (0-64)
--- @note Lower distance indicates higher similarity
+--- Calculate Hamming distance between two 256-bit (32-byte) hashes
+-- @param hash1 table - First hash (array of 32 bytes)
+-- @param hash2 table - Second hash (array of 32 bytes)
+-- @return number - Hamming distance (0-256)
 function M.video_hamming_distance(hash1, hash2)
     local dist = 0
-    for i = 1, 8 do
+    for i = 1, HASH_LENGTH do
         local val1 = hash1[i]
         local val2 = hash2[i]
         local xor_val
@@ -400,6 +331,7 @@ function M.video_hamming_distance(hash1, hash2)
         if utils.bit_status then
             xor_val = utils.bit.bxor(val1, val2)
         else
+            -- Pure lua XOR
             local a, b = val1, val2
             local res = 0
             for bit_i = 0, 7 do
@@ -416,37 +348,106 @@ function M.video_hamming_distance(hash1, hash2)
     return dist
 end
 
---- Scan a segment of video for a matching pHash
+--- PDQ Image Domain Quality Metric (Validation)
+-- @param frame_data cdata|string - Raw 64x64 frame
+-- @param is_ffi boolean
+-- @return boolean, string - Valid status and reason
+function M.validate_frame(frame_data, is_ffi)
+    local get_pixel
+    if is_ffi then
+        get_pixel = function(idx) return frame_data[idx] end
+    else
+        get_pixel = function(idx) return string.byte(frame_data, idx + 1) end
+    end
+
+    -- Quality = Gradient Sum / 90
+    -- Gradient Sum = sum(|u - v|/255) for all adjacent pixels (Horiz and Vert)
+
+    local gradient_sum = 0.0
+
+    -- Horizontal Gradients: (Rows - 1) x Cols ? No, Rows x (Cols - 1)
+    -- Rust code:
+    -- Loop 1: i in 0..ROWS-1, j in 0..COLS. |buf[i][j] - buf[i+1][j]| (Vertical diff)
+    -- Loop 2: i in 0..ROWS, j in 0..COLS-1. |buf[i][j] - buf[i][j+1]| (Horizontal diff)
+
+    -- Vertical diffs
+    for y = 0, BUFFER_W_H - 2 do
+        for x = 0, BUFFER_W_H - 1 do
+            local idx1 = y * BUFFER_W_H + x
+            local idx2 = (y + 1) * BUFFER_W_H + x
+            local u = get_pixel(idx1)
+            local v = get_pixel(idx2)
+            gradient_sum = gradient_sum + math.abs(u - v)
+        end
+    end
+
+    -- Horizontal diffs
+    for y = 0, BUFFER_W_H - 1 do
+        for x = 0, BUFFER_W_H - 2 do
+            local idx1 = y * BUFFER_W_H + x
+            local idx2 = y * BUFFER_W_H + x + 1
+            local u = get_pixel(idx1)
+            local v = get_pixel(idx2)
+            gradient_sum = gradient_sum + math.abs(u - v)
+        end
+    end
+
+    -- Normalize by 255 (since pixels are 0-255, but Rust uses floats 0-255 so diff is 0-255)
+    gradient_sum = gradient_sum / 255.0
+
+    local quality = gradient_sum / 90.0
+
+    -- We want to reject if quality is too low?
+    -- Rust code doesn't reject, just returns quality.
+    -- High quality means high gradients (lots of detail/edges).
+    -- Low quality means flat/smooth (black screen, solid color).
+    -- A completely black frame has gradient_sum = 0 -> quality = 0.
+    -- We probably want to reject low quality frames.
+    -- PDQ doesn't specify a threshold for rejection, but we can infer.
+    -- Let's say quality < 0.01 (1%) is bad.
+
+    if quality < 0.01 then
+        return false, "Low Quality (Gradient Sum)"
+    end
+
+    -- Maybe also check variance like before?
+    -- PDQ quality metric essentially measures "feature richness".
+    -- Let's stick to this for now.
+
+    return true, "Passed"
+end
+
+--- Scan a segment of video for a matching PDQ hash
 -- @param start_time number - Start timestamp in the video
 -- @param duration number - Duration of the segment to scan
 -- @param video_path string - Path to the video file
 -- @param target_raw_bytes string|cdata - The reference pHash frame data
 -- @param stats table|nil - Table to collect performance statistics
 -- @return number|nil, number|nil - Best Hamming distance and its timestamp
--- @note Spawns ffmpeg to extract raw frames and computes pHash for each
--- @note Implementation uses early exit based on threshold and miss count
 function M.scan_video_segment(start_time, duration, video_path, target_raw_bytes, stats)
     if duration <= 0 then return nil, nil end
 
     local ffmpeg_start = mp.get_time()
+    -- Ensure ffmpeg extracts 64x64 frames by using config.VIDEO_FRAME_SIZE (4096)
     local res = ffmpeg.run_task('scan_video', { start = start_time, duration = duration, path = video_path })
     local ffmpeg_end = mp.get_time()
 
     if not res or res.status ~= 0 or not res.stdout or #res.stdout == 0 then
-        -- Silent fail is better for scan loops, but log if debug
         if config.options.debug == "yes" then mp.msg.error("FFmpeg failed during scan.") end
         return nil, nil
     end
 
     local stream = res.stdout
     local num_frames = math.floor(#stream / config.VIDEO_FRAME_SIZE)
+    if num_frames == 0 then return nil, nil end
 
+    -- Compute Target Hash
     local target_hash
     if utils.ffi_status then
         local t_ptr = utils.ffi.cast("uint8_t*", target_raw_bytes)
-        target_hash = M.compute_phash_32_ffi(t_ptr, 0)
+        target_hash = compute_pdq_hash_ffi(t_ptr, 0)
     else
-        target_hash = M.compute_phash_32_lua(target_raw_bytes, 0)
+        target_hash = compute_pdq_hash_lua(target_raw_bytes, 0)
     end
 
     local stream_ptr
@@ -454,11 +455,11 @@ function M.scan_video_segment(start_time, duration, video_path, target_raw_bytes
         stream_ptr = utils.ffi.cast("uint8_t*", stream)
     end
 
-    local min_dist = 65
+    local min_dist = 257 -- Max dist is 256
     local best_index_of_min = -1
 
     local last_valid_index = -1
-    local last_valid_dist = 65
+    local last_valid_dist = 257
     local consecutive_misses = 0
     local max_miss_frames = math.ceil(1.0 / config.options.video_interval)
 
@@ -467,12 +468,12 @@ function M.scan_video_segment(start_time, duration, video_path, target_raw_bytes
         local current_hash
 
         if utils.ffi_status then
-            current_hash = M.compute_phash_32_ffi(stream_ptr, offset)
+            current_hash = compute_pdq_hash_ffi(stream_ptr, offset)
         else
-            current_hash = M.compute_phash_32_lua(stream, offset)
+            current_hash = compute_pdq_hash_lua(stream, offset)
         end
 
-        local dist = (target_hash and current_hash) and M.video_hamming_distance(target_hash, current_hash) or 65
+        local dist = (target_hash and current_hash) and M.video_hamming_distance(target_hash, current_hash) or 257
 
         if dist < min_dist then
             min_dist = dist
@@ -508,5 +509,9 @@ function M.scan_video_segment(start_time, duration, video_path, target_raw_bytes
 
     return final_dist, match_timestamp
 end
+
+-- Export compute functions for testing if needed
+M.compute_pdq_hash_ffi = compute_pdq_hash_ffi
+M.compute_pdq_hash_lua = compute_pdq_hash_lua
 
 return M

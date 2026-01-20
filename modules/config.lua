@@ -20,9 +20,9 @@ M.options = {
     audio_min_match_ratio = 0.30,    -- minimum percentage of hashes that must match (0.0 - 1.0)
 
     -- Video: Configuration
-    video_phash_size = 32,         -- pHash size (32x32 DCT -> 8x8 hash)
+    video_phash_size = 64,         -- pHash size (64x64 input -> 16x16 DCT -> 256 bit hash)
     video_interval = 0.20,         -- time interval to check in seconds (0.20 = 200ms)
-    video_threshold = 12,          -- tolerance for Hamming Distance (0-64).
+    video_threshold = 50,          -- tolerance for Hamming Distance (0-256).
     video_search_window = 10,      -- seconds before/after saved timestamp to search
     video_max_search_window = 300, -- stop expanding after this offset
     video_window_step = 30,        -- step size

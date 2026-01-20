@@ -22,7 +22,7 @@
 - **Modular Structure**: The project follows a modular architecture as defined in `.clinerules/mpv-lua-practices.md`. This includes the "Local Table Pattern," "Strict Locals," and a single-responsibility directory structure (`modules/`).
 - **LuaJIT Dependency**: The script heavily utilizes FFI and bitwise operations. While fallback paths exist for standard Lua, significant optimizations have been implemented for non-FFI environments:
     - **Audio**: An optimized Stockham FFT implementation with precomputed tables, 1-based indexing, and incremental arithmetic provides a ~4x speedup over naive Lua code (ZFFT).
-    - **Video**: A **Partial Direct DCT** implementation provides a **~4x speedup** for pHash generation by computing only required coefficients and using a zero-allocation buffer model.
+    - **Video**: A matrix-based **DCT implementation** provides high-performance PDQ Hash generation by computing the 16x16 DCT region directly from the 64x64 input using matrix multiplication.
 - **FFmpeg Path**: FFmpeg must be executable from the command line.
 - **File System**: Requires write access to the system temp directory to store fingerprint files.
 
@@ -39,6 +39,7 @@ intro-fingerprint/
 │   ├── config.lua          # Configuration & defaults
 │   ├── ffmpeg.lua          # FFmpeg command wrapper
 │   ├── fft.lua             # FFT algorithms (Lua & FFI)
+│   ├── pdq_matrix.lua      # PDQ Hash DCT matrix constants
 │   ├── state.lua           # Shared runtime state
 │   ├── ui.lua              # OSD feedback abstraction
 │   ├── utils.lua           # Low-level async/FFI utilities
@@ -51,12 +52,12 @@ The project maintains a comprehensive test suite in the `tests/` directory, usin
 - **Framework**: [LuaUnit](https://github.com/bluebird75/luaunit) (automatically downloaded by `run_tests.lua`).
 - **Mocking**: The `mp` API (properties, commands, OSD, messages) is fully mocked in `tests/mocks.lua` and `tests/run_tests.lua`, enabling tests to run in a standalone Lua environment without MPV.
 - **Coverage**:
-    - **Unit Tests**: Cover core algorithms (FFT, pHash, Hamming distance), validation logic, and utility functions.
+    - **Unit Tests**: Cover core algorithms (FFT, PDQ Hash, Hamming distance), validation logic, and utility functions.
     - **Integration Tests**: Verify high-level workflows (capture, scan, skip) and FFmpeg command construction.
 - **Execution**: Run via `lua tests/run_tests.lua` (supports standard Lua 5.1+) or `luajit tests/run_tests.lua`.
 
 ## Optimization Decisions
-- **pHash (32x32 -> 8x8 DCT)**: Chosen for its superior robustness and invariance to brightness/contrast changes.
+- **PDQ Hash (64x64 -> 16x16 DCT)**: Chosen for its superior robustness to geometric distortions and compression artifacts compared to standard pHash.
 - **Audio Normalization**: Uses mandatory `dynaudnorm` (default settings) to ensure spectral consistency regardless of source volume.
 - **Spectrogram Parameters**:
     - Sample Rate: 11025 Hz (sufficient for frequency peaks while minimizing data size).

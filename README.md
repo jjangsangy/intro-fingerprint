@@ -10,7 +10,7 @@ When you mark an intro in one episode, the script can search for that same intro
 # Features
 
 - **Audio Fingerprinting**: Uses Constellation Hashing to find identical audio patterns, robust to noise and distortion. **(Recommended/Default)**
-- **Video Fingerprinting**: Uses Perceptual Hashing (pHash) to find visually similar intros.
+- **Video Fingerprinting**: Uses PDQ Hash (Perceptual Hashing) to find visually similar intros.
 - **High Performance**:
   - Uses **LuaJIT FFI** for zero-allocation data processing to handle large audio/video datasets efficiently.
   - Optimized **Pure-Lua Fallback** for environments without LuaJIT (e.g., some Linux builds), achieving ~2.5x faster FFTs than standard implementations.
@@ -98,8 +98,8 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 ## Video Options
 | Option                    | Default | Description                                                       |
 | :------------------------ | :------ | :---------------------------------------------------------------- |
-| `video_phash_size`        | `32`    | pHash size (32x32 DCT -> 8x8 hash).                               |
-| `video_threshold`         | `12`    | Tolerance for Hamming Distance (0-64). Lower is stricter.         |
+| `video_phash_size`        | `64`    | PDQ Hash size (64x64 DCT -> 16x16 hash).                          |
+| `video_threshold`         | `50`    | Tolerance for Hamming Distance (0-256). Lower is stricter.        |
 | `video_interval`          | `0.20`  | Time interval (seconds) between checked frames during video scan. |
 | `video_search_window`     | `10`    | Initial seconds before/after saved timestamp to search.           |
 | `video_max_search_window` | `300`   | Maximum seconds to expand the search window.                      |
@@ -136,11 +136,11 @@ The script uses two primary methods for fingerprinting:
     - **Inverted Index**: Uses an $O(1)$ hash-map for near-instant lookup of fingerprints during the scan.
     - **Optimal Stopping**: Scans terminate immediately once a high-confidence match is confirmed and the signal gradient drops.
 
-## 2. Video Fingerprinting (Perceptual Hash / pHash)
+## 2. Video Fingerprinting (PDQ Hash)
 
 ![Perceptual Hashing](assets/gradient-hashing.svg)
 
-- **Algorithm**: Resizes frames to 32x32 grayscale and computes the Discrete Cosine Transform (DCT) of the rows and columns. A 64-bit hash (8 bytes) is generated from the low-frequency 8x8 coefficients.
+- **Algorithm**: Resizes frames to 64x64 grayscale and computes the Discrete Cosine Transform (DCT) of the rows and columns. A 256-bit hash (32 bytes) is generated from the low-frequency 16x16 coefficients by comparing each coefficient against the median value.
 - **Matching**: Uses Hamming Distance (count of differing bits). It is robust against color changes, small aspect ratio variations, and high-frequency noise.
 - **Search Strategy**: The search starts around the timestamp of the saved fingerprint and expands outward.
 - **Optimization**: FFmpeg video decoding is the most expensive part of the pipeline. By assuming the intro is at a similar location (common in episodic content), we avoid decoding the entire stream, resulting in much faster scans.
@@ -155,55 +155,50 @@ To prevent false positives and wasted scans, the script validates media quality 
     - **Low Complexity**: Audio lacks distinct frequency peaks (< 50 hashes generated).
 
 - **Video Rejection**:
-    - **Low Variance**: Frame is too uniform (StdDev < 10).
-    - **Dominant Color**: Single color covers > 70% of the frame (e.g., black screen).
-    - **Low Edge Density**: Frame lacks detail/edges (< 1.5%).
-    - **Low AC Energy**: Frame lacks texture/contrast (< 10%).
-    - **Low pHash Variance**: DCT low-frequencies are too uniform (< 50).
+    - **Low Quality**: The frame lacks sufficient detail or structure (Gradient Sum Quality < 0.01). This typically rejects black screens, solid colors, and very smooth gradients.
 
 ### Understanding Frame Rejection
 
-To ensure robust matching, the system rejects frames that lack distinct **low-frequency structural information**. This includes:
+To ensure robust matching, the system rejects frames that lack distinct **structural information**. This includes:
 
-1.  **Low Variance Scenes**: Solid colors, black screens, or smooth gradients. These contain almost no information, making the hash purely random noise.
-2.  **High-Frequency Chaos**: Dense text, intricate line art, starfields, or visual static.
+1.  **Low Quality Scenes**: Solid colors, black screens, or smooth gradients. These contain almost no information, making the hash purely random noise.
 
 #### **Why?**
 
-Perceptual Hashing (pHash) works by "squinting" at the image—resizing it to a tiny 32x32 thumbnail and analyzing the broad strokes of light and dark (low frequencies).
--   If an image is **too simple** (solid color), the thumbnail is featureless.
--   If an image is **too complex** (dense text), the fine details disappear when resized, leaving a featureless gray blob.
+PDQ Hash works by analyzing the image's spatial gradients.
+-   If an image is **too simple** (solid color), there are no gradients.
+-   If an image is **too complex** (dense text), the fine details disappear when resized to 64x64.
 
 #### 1. Good Frame (Accepted)
-| Original Frame | What pHash Sees (32x32 Grayscale) |
+| Original Frame | What PDQ Hash Sees (64x64 -> 16x16 Low Freq) |
 | :---: | :---: |
 | ![Accepted](assets/samuel.webp) | ![Accepted pHash](assets/samuel_phash.webp) |
 
 The image has **high contrast and distinct structure**. You can clearly see shapes that remain stable even after resizing and compression.
 
 #### 2. Bad Frame (Noisy/Low-Contrast)
-| Original Frame | What pHash Sees |
+| Original Frame | What PDQ Hash Sees |
 | :---: | :---: |
 | ![Rejected](assets/interstellar.webp) | ![Rejected pHash](assets/interstellar_phash.webp) |
 
-**Reason: Low Variance & Low Edge Density.**
-The image is too dark and uniform. With a standard deviation below 10, there is insufficient contrast to differentiate features. The lack of distinct shapes also triggers the **Low Edge Density** check (< 1.5%).
+**Reason: Low Quality.**
+The image is too dark and uniform. It lacks distinct gradients or edges needed for a stable hash.
 
 #### 3. Bad Frame (Gradient/Waves)
-| Original Frame | What pHash Sees |
+| Original Frame | What PDQ Hash Sees |
 | :---: | :---: |
 | ![Waves](assets/waves.webp) | ![Waves pHash](assets/waves_phash.webp) |
 
-**Reason: Low Structural Complexity.**
-While this image might pass basic variance checks, it relies on simple gradients. Gradients often result in **Low Edge Density** because they lack sharp transitions. This makes the fingerprint unstable and prone to matching other generic scenes.
+**Reason: Low Quality.**
+The image relies on simple gradients without sharp transitions. This results in a low gradient sum, making the fingerprint unstable.
 
 #### 4. Bad Frame (Low Texture)
-| Original Frame | What pHash Sees |
+| Original Frame | What PDQ Hash Sees |
 | :---: | :---: |
 | ![Betrayal](assets/betrayal.webp) | ![Betrayal pHash](assets/betrayal_phash.webp) |
 
-**Reason: Low AC Energy.**
-The image is blurry and washed out. It fails the **AC Energy** check (< 10%) because the signal is dominated by the average background color (DC component) rather than distinct structural details (AC components).
+**Reason: Low Quality.**
+The image is blurry and washed out, dominated by the background color rather than distinct structural details.
 
 **Always choose a frame with clear shapes, high contrast, and distinct objects.**
 

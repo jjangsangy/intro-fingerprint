@@ -96,6 +96,13 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 | `audio_target_t_min`         | `10`    | Minimum delay in frames for peak pairs in constellation hashing.            |
 | `audio_target_t_max`         | `100`   | Maximum delay in frames for peak pairs in constellation hashing.            |
 
+### Audio Validation Options
+| Option                       | Default | Description                                                        |
+| :--------------------------- | :------ | :----------------------------------------------------------------- |
+| `audio_silence_threshold`    | `0.005` | RMS amplitude threshold below which audio is considered silence.   |
+| `audio_sparsity_threshold`   | `0.10`  | Minimum signal density (non-zero samples ratio).                   |
+| `audio_min_complexity`       | `50`    | Minimum number of hashes required for a valid fingerprint.         |
+
 ## Video Options
 | Option                    | Default | Description                                                       |
 | :------------------------ | :------ | :---------------------------------------------------------------- |
@@ -105,6 +112,15 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 | `video_search_window`     | `10`    | Initial seconds before/after saved timestamp to search.           |
 | `video_max_search_window` | `300`   | Maximum seconds to expand the search window.                      |
 | `video_window_step`       | `30`    | Step size (seconds) when expanding the video search window.       |
+
+### Video Validation Options
+| Option                    | Default | Description                                     |
+| :------------------------ | :------ | :---------------------------------------------- |
+| `video_min_brightness`    | `25`    | Minimum mean brightness (0-255).                |
+| `video_max_brightness`    | `230`   | Maximum mean brightness (0-255).                |
+| `video_min_contrast`      | `10.0`  | Minimum standard deviation.                     |
+| `video_min_entropy`       | `4.0`   | Minimum entropy (0-8).                          |
+| `video_min_quality`       | `1.0`   | Minimum gradient sum quality metric.            |
 
 ## File Paths
 | Option                | Default                       | Description                      |

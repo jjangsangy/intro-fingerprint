@@ -94,7 +94,12 @@ flowchart TD
 ## Key Algorithms
 
 ### 1. Video Fingerprinting: PDQ Hash
-- **Extraction**: Preprocesses frame using an optimized **Jarosz filter approximation** chain: `scale=512:512`, `colorchannelmixer` (Luminance), `boxblur=2:2` (Tent Filter), `scale=64:64:flags=area`.
+- **Extraction**: Preprocesses frame using an optimized **Jarosz filter approximation** chain:
+    - `scale=512:512:flags=bilinear`
+    - `format=rgb24`, `colorchannelmixer` (Rec.601 Luminance)
+    - `avgblur=sizeX=4:sizeY=4` (Pass 1)
+    - `avgblur=sizeX=4:sizeY=4` (Pass 2) -> Approximates Tent/Triangle filter
+    - `scale=64:64:flags=neighbor` (Decimation)
 - **Validation**: Rejects low-quality frames (flat, solid color) using PDQ's Image Domain Quality Metric (Gradient Sum / 90).
 - **Hashing**: Implements Meta's PDQ Hash algorithm.
     - **Input**: 64x64 Luminance buffer (4096 bytes).

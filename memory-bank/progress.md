@@ -10,7 +10,7 @@
 - [x] **Optimal Stopping**: Gradient-based early termination for efficient scanning.
 - [x] **Aligned Debug Tables**: Converted per-segment scanning logs into an aligned table format for better readability.
 - [x] **Video Fingerprinting**: PDQ Hash implementation for robust 256-bit frame matching.
-- [x] **Jarosz Filter**: Implemented Jarosz filter chain for robust video preprocessing.
+- [x] **Jarosz Filter**: Implemented Jarosz filter chain for robust video preprocessing (Verified correct against official PDQ C++ implementation).
 - [x] **Audio Fingerprinting**: Constellation hashing with FFT-based peak detection.
 - [x] **Async Processing**: Use of MPV coroutines and async subprocesses.
 - [x] **Configurable Options**: Exposure of thresholds, windows, and processing flags via MPV options.

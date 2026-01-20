@@ -21,8 +21,9 @@ local ffmpeg_profiles = {
                 format=rgb24,
                 colorchannelmixer=rr=0.299:rg=0.587:rb=0.114:gr=0.299:gg=0.587:gb=0.114:br=0.299:bg=0.587:bb=0.114,
                 format=gray,
-                boxblur=2:2,
-                scale=%d:%d:flags=area
+                avgblur=sizeX=4:sizeY=4,
+                avgblur=sizeX=4:sizeY=4,
+                scale=%d:%d:flags=neighbor
             ]], config.options.video_hash_size, config.options.video_hash_size):gsub("%s+", "")
             return {
                 "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-hwaccel", "auto",
@@ -43,8 +44,9 @@ local ffmpeg_profiles = {
                 format=rgb24,
                 colorchannelmixer=rr=0.299:rg=0.587:rb=0.114:gr=0.299:gg=0.587:gb=0.114:br=0.299:bg=0.587:bb=0.114,
                 format=gray,
-                boxblur=2:2,
-                scale=%d:%d:flags=area
+                avgblur=sizeX=4:sizeY=4,
+                avgblur=sizeX=4:sizeY=4,
+                scale=%d:%d:flags=neighbor
             ]], config.options.video_interval, config.options.video_hash_size, config.options.video_hash_size):gsub("%s+", "")
             return {
                 "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-hwaccel", "auto",

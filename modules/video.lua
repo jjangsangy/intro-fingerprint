@@ -378,6 +378,7 @@ function M.validate_frame(frame_data, is_ffi)
     -- 3. Check Brightness (Too dark or Too bright/white)
     -- Low brightness often means black screen/fade.
     -- High brightness could be white flash or solid white.
+    utils.log_info(string.format("Video Quality: Brightness=%.2f (Min=%.1f, Max=%.1f)", mean, config.options.video_min_brightness, config.options.video_max_brightness))
     if mean < config.options.video_min_brightness then
         return false, string.format("Too Dark (Mean: %.1f)", mean)
     end
@@ -407,6 +408,7 @@ function M.validate_frame(frame_data, is_ffi)
     -- 5. Check Contrast (Standard Deviation)
     -- A solid color (even if not black/white) will have near 0 std dev.
     -- Normal scenes usually have std_dev > 20.
+    utils.log_info(string.format("Video Quality: Contrast (StdDev)=%.2f (Min=%.1f)", std_dev, config.options.video_min_contrast))
     if std_dev < config.options.video_min_contrast then
         return false, string.format("Low Contrast (StdDev: %.1f)", std_dev)
     end
@@ -416,6 +418,7 @@ function M.validate_frame(frame_data, is_ffi)
     -- Solid color is 0.
     -- Typical complex scenes > 6.0.
     -- Simple animations/logos might be 4.0-5.0.
+    utils.log_info(string.format("Video Quality: Entropy=%.2f (Min=%.1f)", entropy, config.options.video_min_entropy))
     if entropy < config.options.video_min_entropy then
         return false, string.format("Low Information (Entropy: %.1f)", entropy)
     end
@@ -453,6 +456,7 @@ function M.validate_frame(frame_data, is_ffi)
     -- PDQ recommendation is check for gradients.
     -- If we passed entropy/std_dev, we likely have variation,
     -- but this ensures the variation has spatial structure (edges).
+    utils.log_info(string.format("Video Quality: Gradient=%.4f (Min=%.4f)", quality, config.options.video_min_quality))
     if quality < config.options.video_min_quality then
         return false, string.format("Low Quality (Gradient: %.3f)", quality)
     end
@@ -548,6 +552,10 @@ function M.scan_video_segment(start_time, duration, video_path, target_raw_bytes
         match_timestamp = start_time + (last_valid_index * config.options.video_interval)
     elseif best_index_of_min >= 0 then
         match_timestamp = start_time + (best_index_of_min * config.options.video_interval)
+    end
+
+    if final_dist < 257 then
+        utils.log_info(string.format("Video Scan: Best Dist=%d (Threshold=%d) at %.2fs", final_dist, config.options.video_threshold, match_timestamp or -1))
     end
 
     return final_dist, match_timestamp

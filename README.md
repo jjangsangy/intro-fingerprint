@@ -1,6 +1,7 @@
 # intro-fingerprint
 
 ![intro-fingerprint](assets/header.svg)
+
 ![CI](https://github.com/jjangsangy/intro-fingerprint/actions/workflows/ci.yml/badge.svg) ![Lint](https://github.com/jjangsangy/intro-fingerprint/actions/workflows/lint.yml/badge.svg) [![GitHub release (latest by date)](https://img.shields.io/github/v/release/jjangsangy/intro-fingerprint)](https://github.com/jjangsangy/intro-fingerprint/releases/latest) [![GitHub last commit](https://img.shields.io/github/last-commit/jjangsangy/intro-fingerprint)](https://github.com/jjangsangy/intro-fingerprint/commits) [![Platform: mpv](https://img.shields.io/badge/platform-mpv-green.svg)](https://mpv.io/) [![LuaJIT Optimized](https://img.shields.io/badge/LuaJIT-Optimized-blueviolet.svg)](https://luajit.org/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 An MPV script to skip intro sequences in media by fingerprinting audio and video.

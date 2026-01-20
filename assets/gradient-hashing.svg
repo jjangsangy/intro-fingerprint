@@ -24,10 +24,10 @@
 
   <rect width="800" height="400" fill="#121212" rx="10"/>
 
-  <text x="400" y="40" text-anchor="middle" class="title">Perceptual Hashing (pHash) Video Fingerprinting</text>
+  <text x="400" y="40" text-anchor="middle" class="title">PDQ Hash Video Fingerprinting</text>
 
   <!-- 1. Resize -->
-  <g transform="translate(50, 80)">
+  <g transform="translate(40, 80)">
     <text x="75" y="-10" text-anchor="middle" class="label" style="fill: white;">1. Resize &amp; Grayscale</text>
 
     <rect x="25" y="20" width="100" height="60" rx="2" fill="#2d3436" stroke="#b2bec3" stroke-width="1" stroke-dasharray="4"/>
@@ -37,43 +37,46 @@
 
     <g transform="translate(35, 130)">
         <rect x="0" y="0" width="80" height="80" fill="#1e272e" stroke="#a29bfe" stroke-width="1"/>
-        <path d="M10 0 v80 M20 0 v80 M30 0 v80 M40 0 v80 M50 0 v80 M60 0 v80 M70 0 v80" stroke="#2d3436" stroke-width="0.5"/>
-        <path d="M0 10 h80 M0 20 h80 M0 30 h80 M0 40 h80 M0 50 h80 M0 60 h80 M0 70 h80" stroke="#2d3436" stroke-width="0.5"/>
+        <!-- Draw a finer grid to imply 64x64 -->
+        <path d="M5 0 v80 M10 0 v80 M15 0 v80 M20 0 v80 M25 0 v80 M30 0 v80 M35 0 v80 M40 0 v80 M45 0 v80 M50 0 v80 M55 0 v80 M60 0 v80 M65 0 v80 M70 0 v80 M75 0 v80" stroke="#2d3436" stroke-width="0.3"/>
+        <path d="M0 5 h80 M0 10 h80 M0 15 h80 M0 20 h80 M0 25 h80 M0 30 h80 M0 35 h80 M0 40 h80 M0 45 h80 M0 50 h80 M0 55 h80 M0 60 h80 M0 65 h80 M0 70 h80 M0 75 h80" stroke="#2d3436" stroke-width="0.3"/>
     </g>
-    <text x="75" y="230" text-anchor="middle" class="label-sm">32x32 Grayscale</text>
+    <text x="75" y="230" text-anchor="middle" class="label-sm">64x64 Grayscale</text>
   </g>
 
-  <path d="M165 250 L260 150" class="arrow" marker-end="url(#arrow)"/>
+  <path d="M165 250 L250 150" class="arrow" marker-end="url(#arrow)"/>
 
-  <!-- 2. DCT and Hash -->
-  <g transform="translate(260, 80)">
-    <text x="120" y="-10" text-anchor="middle" class="label" style="fill: white;">2. DCT &amp; Hash Generation</text>
+  <!-- 2. DCT Projection and Hash -->
+  <g transform="translate(250, 80)">
+    <text x="130" y="-10" text-anchor="middle" class="label" style="fill: white;">2. DCT Projection &amp; Hash</text>
 
     <!-- DCT visualization -->
-    <g transform="translate(0, 30)">
+    <g transform="translate(10, 30)">
         <rect x="0" y="0" width="80" height="80" fill="#1e272e" stroke="#6c5ce7" stroke-width="1"/>
-        <rect x="0" y="0" width="20" height="20" class="freq-low"/>
-        <text x="40" y="95" text-anchor="middle" class="label-sm">2D-DCT</text>
-        <text x="40" y="112" text-anchor="middle" class="label-sm">Top-left 8x8</text>
-        <text x="40" y="126" text-anchor="middle" class="label-sm">(Low Freqs)</text>
+        <!-- Represent projection -->
+        <text x="40" y="45" text-anchor="middle" class="label-sm" fill="#a29bfe">D &#215; Img &#215; D&#7488;</text>
+        <text x="40" y="95" text-anchor="middle" class="label-sm">Projection</text>
+        <text x="40" y="110" text-anchor="middle" class="label-sm">Matrix</text>
     </g>
 
-    <path d="M20 40 Q75 20 130 60" class="arrow" marker-end="url(#arrow)"/>
+    <path d="M30 40 Q85 20 140 60" class="arrow" marker-end="url(#arrow)"/>
 
-    <!-- Reduced 8x8 coefficients -->
-    <g transform="translate(130, 40)">
-        <text x="20" y="-30" text-anchor="middle" class="label-sm">Mean of Coeffs</text>
-        <text x="20" y="-15" text-anchor="middle" class="label-sm">(excl. DC term)</text>
-        <rect x="0" y="0" width="40" height="40" fill="#2d3436" stroke="#b2bec3"/>
-        <rect x="0" y="0" width="5" height="5" fill="#636e72" fill-opacity="0.8"/>
-        <path d="M5 0 v40 M10 0 v40 M15 0 v40 M20 0 v40 M25 0 v40 M30 0 v40 M35 0 v40 M0 5 h40 M0 10 h40 M0 15 h40 M0 20 h40 M0 25 h40 M0 30 h40 M0 35 h40" stroke="#1e272e" stroke-width="0.5"/>
+    <!-- 16x16 coefficients -->
+    <g transform="translate(140, 40)">
+        <text x="40" y="-30" text-anchor="middle" class="label-sm">16x16 Coefficients</text>
+        <text x="40" y="-15" text-anchor="middle" class="label-sm">(256 values)</text>
+        <rect x="0" y="0" width="80" height="80" fill="#2d3436" stroke="#b2bec3"/>
+        <!-- 4x4 grid representing blocks of 4x4 pixels each to show 16x16 total? Or just a grid -->
+        <path d="M20 0 v80 M40 0 v80 M60 0 v80 M0 20 h80 M0 40 h80 M0 60 h80" stroke="#1e272e" stroke-width="1"/>
+        <path d="M5 0 v80 M10 0 v80 M15 0 v80 M25 0 v80 M30 0 v80 M35 0 v80 M45 0 v80 M50 0 v80 M55 0 v80 M65 0 v80 M70 0 v80 M75 0 v80" stroke="#1e272e" stroke-width="0.3"/>
+        <path d="M0 5 h80 M0 10 h80 M0 15 h80 M0 25 h80 M0 30 h80 M0 35 h80 M0 45 h80 M0 50 h80 M0 55 h80 M0 65 h80 M0 70 h80 M0 75 h80" stroke="#1e272e" stroke-width="0.3"/>
     </g>
 
-    <g transform="translate(0, 180)">
-        <rect x="0" y="0" width="240" height="80" rx="4" fill="#1e272e" stroke="#636e72" stroke-width="1" stroke-dasharray="2"/>
-        <text x="120" y="25" text-anchor="middle" class="label" fill="#a29bfe">Logic: Coeffs > Mean ? 1 : 0</text>
+    <g transform="translate(10, 180)">
+        <rect x="0" y="0" width="260" height="80" rx="4" fill="#1e272e" stroke="#636e72" stroke-width="1" stroke-dasharray="2"/>
+        <text x="130" y="25" text-anchor="middle" class="label" fill="#a29bfe">Logic: Coeff > Median ? 1 : 0</text>
 
-        <g transform="translate(40, 50)">
+        <g transform="translate(50, 50)">
             <text x="0" y="0" text-anchor="middle" class="value bit-one">1</text>
             <text x="20" y="0" text-anchor="middle" class="value bit-zero">0</text>
             <text x="40" y="0" text-anchor="middle" class="value bit-one">1</text>
@@ -83,17 +86,17 @@
             <text x="120" y="0" text-anchor="middle" class="value bit-one">1</text>
             <text x="140" y="0" text-anchor="middle" class="value" fill="#636e72">...</text>
         </g>
-        <text x="120" y="70" text-anchor="middle" class="label-sm">Result: 64 bits (8 bytes)</text>
+        <text x="130" y="70" text-anchor="middle" class="label-sm">Result: 256 bits (32 bytes)</text>
     </g>
   </g>
 
-  <path d="M430 140 L550 134" class="arrow" marker-end="url(#arrow)"/>
+  <path d="M480 140 L560 134" class="arrow" marker-end="url(#arrow)"/>
 
   <!-- 3. Match -->
-  <g transform="translate(560, 80)">
+  <g transform="translate(570, 80)">
     <text x="100" y="-10" text-anchor="middle" class="label" style="fill: white;">3. Match (Hamming Dist)</text>
 
-    <text x="0" y="30" class="label-sm" fill="#b2bec3">Stored Hash (64-bit)</text>
+    <text x="0" y="30" class="label-sm" fill="#b2bec3">Stored Hash (256-bit)</text>
     <g transform="translate(0, 40)">
         <text x="0" y="14" class="value" fill="#a29bfe" letter-spacing="2">1011001...</text>
     </g>
@@ -105,11 +108,11 @@
         <text x="28" y="14" class="value" fill="#b2bec3" letter-spacing="2">1001...</text>
     </g>
 
-    <line x1="0" y1="115" x2="150" y2="115" stroke="#636e72" stroke-width="1"/>
+    <line x1="0" y1="115" x2="180" y2="115" stroke="#636e72" stroke-width="1"/>
 
     <text x="0" y="140" class="label-sm" fill="#b2bec3">Hamming Distance (Diffs)</text>
     <text x="0" y="165" class="value" fill="#ff7675" font-size="20">1</text>
-    <text x="20" y="165" class="label-sm" fill="#b2bec3">(e.g. Threshold &#8804; 12)</text>
+    <text x="30" y="165" class="label-sm" fill="#b2bec3">(e.g. Threshold &#8804; 50)</text>
 
     <g transform="translate(0, 190)">
         <circle cx="15" cy="15" r="15" fill="#00b894" fill-opacity="0.2" stroke="#00b894" stroke-width="2"/>

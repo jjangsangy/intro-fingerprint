@@ -33,22 +33,6 @@ local ffmpeg_profiles = {
         capture_stdout = true,
         capture_stderr = true
     },
-    -- Profile: Extract audio clip for fingerprinting (Sync)
-    extract_audio = {
-        fn = mp_utils.subprocess,
-        build_args = function(p)
-            return {
-                "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-vn", "-sn",
-                "-ss", tostring(p.start), "-t", tostring(p.duration),
-                "-i", p.path, "-map", "a:0",
-                "-ac", "1", "-ar", tostring(config.options.audio_sample_rate),
-                "-af", "dynaudnorm",
-                "-f", "s16le", "-y", "-"
-            }
-        end,
-        capture_stdout = true,
-        capture_stderr = true
-    },
     -- Profile: Scan video segment (Async)
     scan_video = {
         fn = mp.command_native_async,
@@ -72,6 +56,22 @@ local ffmpeg_profiles = {
         capture_stdout = true,
         capture_stderr = true,
         is_async = true
+    },
+    -- Profile: Extract audio clip for fingerprinting (Sync)
+    extract_audio = {
+        fn = mp_utils.subprocess,
+        build_args = function(p)
+            return {
+                "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-vn", "-sn",
+                "-ss", tostring(p.start), "-t", tostring(p.duration),
+                "-i", p.path, "-map", "a:0",
+                "-ac", "1", "-ar", tostring(config.options.audio_sample_rate),
+                "-af", "dynaudnorm",
+                "-f", "s16le", "-y", "-"
+            }
+        end,
+        capture_stdout = true,
+        capture_stderr = true
     },
     -- Profile: Scan audio segment (Async)
     scan_audio = {

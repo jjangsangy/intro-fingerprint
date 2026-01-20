@@ -163,7 +163,7 @@ The script uses two primary methods for fingerprinting:
 - **Optimization**: FFmpeg video decoding is the most expensive part of the pipeline. By assuming the intro is at a similar location (common in episodic content), we avoid decoding the entire stream, resulting in much faster scans.
 
 ### Jarosz Filter Approximation
-The script approximates the Jarosz filter (essential for PDQ robustness) using an optimized FFmpeg chain: `scale=512:512`, `colorchannelmixer` (exact luminance), `boxblur=2:2` (Tent filter), and `scale=64:64:flags=area`.
+The script approximates the Jarosz filter (essential for PDQ robustness) using an optimized FFmpeg filter chain: `scale=512:512:flags=bilinear`, `colorchannelmixer` (exact luminance), `avgblur=sizeX=4:sizeY=4` (applied twice), and `scale=64:64:flags=neighbor`. This configuration matches closely but is not exact with the official PDQ C++ implementation.
 
 # Quality Validation
 

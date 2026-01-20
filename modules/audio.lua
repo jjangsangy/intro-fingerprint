@@ -222,6 +222,8 @@ function M.validate_audio(pcm_str)
     local rms = math.sqrt(sum_sq / num_samples)
     local signal_ratio = non_zero_count / num_samples
 
+    utils.log_info(string.format("Audio Quality: RMS=%.4f (Min=%.4f), Signal Ratio=%.2f (Min=%.2f)", rms, rms_threshold, signal_ratio, sparsity_threshold))
+
     if rms < rms_threshold then
         return false, "Silence Detected"
     end

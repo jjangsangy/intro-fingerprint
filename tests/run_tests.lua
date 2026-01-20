@@ -80,6 +80,7 @@ require('tests.test_state')
 require('tests.test_actions')
 require('tests.test_fingerprint_io')
 require('tests.test_fft_perf')
+require('tests.test_pdqhash')
 
 -- 5. Run Tests
 local lu = require('tests.luaunit')

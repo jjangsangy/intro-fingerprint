@@ -40,7 +40,7 @@ local ffi_double_arr
 if utils.ffi_status then
     local ffi = utils.ffi
     -- Create flat DCT matrix for FFI
-    ffi_dct_matrix = ffi.new("float[?]", DCT_OUTPUT_W_H * BUFFER_W_H)
+    ffi_dct_matrix = ffi.new("double[?]", DCT_OUTPUT_W_H * BUFFER_W_H)
     for i = 0, DCT_OUTPUT_W_H - 1 do
         for j = 0, BUFFER_W_H - 1 do
             ffi_dct_matrix[i * BUFFER_W_H + j] = DCT_MATRIX[i + 1][j + 1]
@@ -73,8 +73,8 @@ local function compute_pdq_hash_ffi(bytes_ptr, start_index)
     -- Rust: intermediate[i][j] = sum(DCT[i][k] * input[k][j])
     -- Input is typically row-major [y][x]. input[k][j] means row k, col j.
 
-    -- Intermediate buffer: 16x64 (1024 floats)
-    local intermediate = ffi.new("float[1024]")
+    -- Intermediate buffer: 16x64 (1024 doubles)
+    local intermediate = ffi.new("double[1024]")
 
     -- Step 1: Intermediate = DCT * Input
     -- DCT is 16x64. Input is 64x64.

@@ -172,14 +172,14 @@ PDQ Hash works by analyzing the image's spatial gradients.
 #### 1. Good Frame (Accepted)
 | Original Frame | What PDQ Hash Sees (64x64 -> 16x16 Low Freq) |
 | :---: | :---: |
-| ![Accepted](assets/samuel.webp) | ![Accepted pHash](assets/samuel_phash.webp) |
+| ![Accepted](assets/samuel.webp) | ![Accepted pHash](assets/samuel_pdqhash.webp) |
 
 The image has **high contrast and distinct structure**. You can clearly see shapes that remain stable even after resizing and compression.
 
 #### 2. Bad Frame (Noisy/Low-Contrast)
 | Original Frame | What PDQ Hash Sees |
 | :---: | :---: |
-| ![Rejected](assets/interstellar.webp) | ![Rejected pHash](assets/interstellar_phash.webp) |
+| ![Rejected](assets/interstellar.webp) | ![Rejected pHash](assets/interstellar_pdqhash.webp) |
 
 **Reason: Low Quality.**
 The image is too dark and uniform. It lacks distinct gradients or edges needed for a stable hash.
@@ -187,7 +187,7 @@ The image is too dark and uniform. It lacks distinct gradients or edges needed f
 #### 3. Bad Frame (Gradient/Waves)
 | Original Frame | What PDQ Hash Sees |
 | :---: | :---: |
-| ![Waves](assets/waves.webp) | ![Waves pHash](assets/waves_phash.webp) |
+| ![Waves](assets/waves.webp) | ![Waves pHash](assets/waves_pdqhash.webp) |
 
 **Reason: Low Quality.**
 The image relies on simple gradients without sharp transitions. This results in a low gradient sum, making the fingerprint unstable.
@@ -195,7 +195,7 @@ The image relies on simple gradients without sharp transitions. This results in 
 #### 4. Bad Frame (Low Texture)
 | Original Frame | What PDQ Hash Sees |
 | :---: | :---: |
-| ![Betrayal](assets/betrayal.webp) | ![Betrayal pHash](assets/betrayal_phash.webp) |
+| ![Betrayal](assets/betrayal.webp) | ![Betrayal pHash](assets/betrayal_pdqhash.webp) |
 
 **Reason: Low Quality.**
 The image is blurry and washed out, dominated by the background color rather than distinct structural details.

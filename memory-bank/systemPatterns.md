@@ -93,19 +93,17 @@ flowchart TD
 
 ## Key Algorithms
 
-### 1. Video Fingerprinting: Perceptual Hash (pHash)
-- **Extraction**: Resizes frame to 32x32 grayscale using FFmpeg `vf=scale=32:32,format=gray`.
-- **Validation**: Rejects low-quality frames to prevent hash collisions.
-    - **Stage 1 (Spatial)**: Checks for Variance (StdDev < 10), Histogram Peak (> 70%), and Edge Density (< 1.5%).
-    - **Stage 2 (DCT)**: Checks for AC/DC Energy Ratio (< 10%) and pHash Region Variance (< 50).
-- **Hashing**:
-    - **DCT-II**: Computes the Discrete Cosine Transform of the 32x32 image.
-        - **Standard Logic**: Uses Makhoul's method (FFT-based DCT) via FFI using the optimized internal Stockham implementation.
-        - **Optimized Lua Fallback**: Uses a **Partial Direct DCT** (matrix multiplication) for the pure Lua path. This computes only the first 8 coefficients for each row and column, avoiding unnecessary calculations and complex-number overhead.
-    - **Feature Extraction**: Extracts the 8x8 low-frequency coefficients (excluding the DC component).
-    - **Thresholding**: Compares each coefficient to the mean of all 64 coefficients to generate bits.
-- **Result**: A 64-bit integer (8 bytes).
-- **Matching**: Hamming distance. A distance $\le 12$ (configurable) is considered a match.
+### 1. Video Fingerprinting: PDQ Hash
+- **Extraction**: Resizes frame to 64x64 grayscale using FFmpeg `vf=scale=64:64,format=gray`.
+- **Validation**: Rejects low-quality frames (flat, solid color) using PDQ's Image Domain Quality Metric (Gradient Sum / 90).
+- **Hashing**: Implements Meta's PDQ Hash algorithm.
+    - **Input**: 64x64 Luminance buffer (4096 bytes).
+    - **Transformation**: Computes a specific 16x16 DCT region directly from the 64x64 input using matrix multiplication (`DCT * Input * DCT^T`).
+        - **Optimized FFI Path**: Uses FFI C-arrays for efficient matrix multiplication.
+        - **Pure Lua Fallback**: Uses standard Lua tables and `string.byte` for compatibility.
+    - **Thresholding**: Computes the median of the 256 DCT coefficients (excluding DC in some variants, but PDQ uses full buffer median). Coefficients > Median map to 1, else 0.
+- **Result**: A 256-bit hash (32 bytes).
+- **Matching**: Hamming distance. A distance $\le 50$ (configurable) is typically considered a match for near-duplicates.
 - **Search Strategy**: Sliding window centered on the original timestamp, expanding outwards to balance speed and accuracy.
 
 ### 2. Audio Fingerprinting: Constellation Hashing

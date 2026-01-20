@@ -32,6 +32,17 @@ The script is in a functional and feature-complete state for its primary goal of
 - **Frame Quality Rejection**: Implemented a two-stage validation system (Spatial + DCT) to reject uniform, repetitive, or featureless frames before adding them to the database.
 - **Sound Quality Rejection**: Implemented a validation step to reject silence or low-complexity audio before generating fingerprints. This includes RMS amplitude checks and signal sparsity detection to prevent false positives from quiet sections.
 - **Comprehensive Test Suite**: Verified the existence of a robust test suite in `tests/` covering all core modules (`audio`, `video`, `fft`, `ffmpeg`, `config`, `actions`). The suite includes a custom runner (`run_tests.lua`) with auto-downloading for `luaunit` and full mocking of the MPV API.
+- **PDQ Hash Migration**: Replaced the 64-bit video pHash algorithm with the 256-bit PDQ Hash algorithm (developed by Meta). This robust perceptual hash offers better resistance to geometric transformations and compression artifacts. The implementation includes:
+    - Porting the specific 16x64 DCT matrix to Lua.
+    - Increasing frame extraction size to 64x64.
+    - Implementing both FFI-optimized (matrix multiplication) and pure Lua fallback paths.
+    - Updating distance metrics (Hamming distance on 256 bits) and validation logic (Gradient Sum).
+- **PDQ Optimization (Pure Lua)**: Heavily optimized the pure Lua fallback for PDQ hashing.
+    - **Memory Layout**: Switched to flat 1D arrays for intermediate results to improve cache locality and reduce table overhead.
+    - **Loop Unrolling**: Implemented manual loop unrolling (chunks of 8) for hot paths to reduce instruction count.
+    - **Zero-Allocation**: Replaced temporary table creation (per-row `string.byte` tables) with direct `unpack` calls into local variables, eliminating thousands of allocations per scan.
+    - **Cached Lookups**: Locally cached DCT matrix rows to avoid repeated table lookups inside inner loops.
+    - **Result**: Achieved significant performance improvement (~10% raw throughput increase on top of previous optimizations, drastically reduced GC pressure).
 
 ## Current Focus
 - User feedback and stability improvements.

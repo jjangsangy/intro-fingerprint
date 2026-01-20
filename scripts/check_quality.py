@@ -14,6 +14,55 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 
+def process_image_pdq(img_path_or_obj, target_width=64, target_height=64):
+    """
+    Processes an image using an approximation of the FFmpeg filter chain used in modules/video.lua.
+
+    FFmpeg Chain:
+    1. scale=512:512:flags=bilinear
+    2. format=rgb24, colorchannelmixer (Rec.601 Grayscale)
+    3. avgblur=sizeX=4:sizeY=4
+    4. avgblur=sizeX=4:sizeY=4
+    5. scale=64:64:flags=neighbor
+
+    Approximation:
+    1. Pillow Resize (512, 512, BILINEAR)
+    2. Pillow Convert "L" (Rec.601)
+    3. Pillow BoxBlur(1.5)
+    4. Pillow BoxBlur(1.5)
+    5. Pillow Resize (64, 64, NEAREST)
+    """
+
+    # Helper to process PIL Image
+    def process_pil(img_pil):
+        # 1. Resize 512x512 Bilinear
+        # Note: FFmpeg scales to 512x512 first regardless of aspect ratio (ignoring AR).
+        img_resized = img_pil.resize((512, 512), Image.Resampling.BILINEAR)
+
+        # 2. Convert to Grayscale (Rec.601)
+        # Pillow 'L' uses ITU-R 601-2: L = R * 299/1000 + G * 587/1000 + B * 114/1000
+        img_gray = img_resized.convert("L")
+
+        # 3 & 4. Two passes of Box Blur
+        # FFmpeg avgblur size 4 is approx radius 1.5 in Pillow
+        img_blur = img_gray.filter(ImageFilter.BoxBlur(1.5))
+        img_blur = img_blur.filter(ImageFilter.BoxBlur(1.5))
+
+        # 5. Decimate to target size (Nearest Neighbor)
+        img_final = img_blur.resize(
+            (target_width, target_height), Image.Resampling.NEAREST
+        )
+
+        return np.array(img_final, dtype=float)
+
+    if isinstance(img_path_or_obj, (str, Path)):
+        with Image.open(img_path_or_obj) as img:
+            return process_pil(img)
+    else:
+        # Assume PIL Image object
+        return process_pil(img_path_or_obj)
+
+
 def calculate_entropy(data):
     """Calculate Shannon entropy of the image data."""
     # data is a 1D numpy array of pixel values (0-255)
@@ -59,29 +108,8 @@ def check_quality(image_path: Path):
     print(f"Checking {image_path.name}...")
 
     try:
-        with Image.open(image_path) as img:
-            # Jarosz Filter Chain (matches modules/ffmpeg.lua)
-
-            # 1. Scale to 512x512 (Bilinear)
-            # ffmpeg: scale=512:512:flags=bilinear
-            img = img.resize((512, 512), Image.Resampling.BILINEAR)
-
-            # 2. RGB -> Luminance -> Grayscale
-            # ffmpeg: format=rgb24, colorchannelmixer=..., format=gray
-            # PIL .convert("L") uses Rec. 601 coefficients (0.299, 0.587, 0.114) matches ffmpeg mixer
-            img = img.convert("L")
-
-            # 3. Box Blur (Radius 2, Power 2)
-            # ffmpeg: boxblur=2:2
-            img = img.filter(ImageFilter.BoxBlur(2))
-            img = img.filter(ImageFilter.BoxBlur(2))
-
-            # 4. Scale to 64x64 (Area)
-            # ffmpeg: scale=64:64:flags=area
-            # Use reduce(8) for true area averaging (512 / 8 = 64)
-            img = img.reduce(8)
-
-        img_array = np.array(img, dtype=float)
+        # Use Correct Jarosz Filter Implementation
+        img_array = process_image_pdq(image_path)
         flat_data = img_array.flatten()
 
         # 1. Mean Brightness

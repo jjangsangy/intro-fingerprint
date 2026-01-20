@@ -11,7 +11,7 @@ import math
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 
 def calculate_entropy(data):
@@ -60,12 +60,28 @@ def check_quality(image_path: Path):
 
     try:
         with Image.open(image_path) as img:
-            # 1. Convert to grayscale
-            img_gray = img.convert("L")
-            # 2. Resize to 64x64
-            img_resized = img_gray.resize((64, 64), Image.Resampling.LANCZOS)
+            # Jarosz Filter Chain (matches modules/ffmpeg.lua)
 
-        img_array = np.array(img_resized, dtype=float)
+            # 1. Scale to 512x512 (Bilinear)
+            # ffmpeg: scale=512:512:flags=bilinear
+            img = img.resize((512, 512), Image.Resampling.BILINEAR)
+
+            # 2. RGB -> Luminance -> Grayscale
+            # ffmpeg: format=rgb24, colorchannelmixer=..., format=gray
+            # PIL .convert("L") uses Rec. 601 coefficients (0.299, 0.587, 0.114) matches ffmpeg mixer
+            img = img.convert("L")
+
+            # 3. Box Blur (Radius 2, Power 2)
+            # ffmpeg: boxblur=2:2
+            img = img.filter(ImageFilter.BoxBlur(2))
+            img = img.filter(ImageFilter.BoxBlur(2))
+
+            # 4. Scale to 64x64 (Area)
+            # ffmpeg: scale=64:64:flags=area
+            # Use reduce(8) for true area averaging (512 / 8 = 64)
+            img = img.reduce(8)
+
+        img_array = np.array(img, dtype=float)
         flat_data = img_array.flatten()
 
         # 1. Mean Brightness

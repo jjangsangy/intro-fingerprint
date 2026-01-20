@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 
 def load_pdq_matrix(modules_path: Path) -> np.ndarray:
@@ -50,13 +50,29 @@ def process_image(input_path: Path, output_path: Path, dct_matrix: np.ndarray) -
 
     # 1. Load image
     with Image.open(input_path) as img:
-        # 2. Convert to grayscale
-        img_gray = img.convert("L")
-        # 3. Resize to 64x64 (PDQ size)
-        img_resized = img_gray.resize((64, 64), Image.Resampling.LANCZOS)
+        # Jarosz Filter Chain (matches modules/ffmpeg.lua)
+
+        # 1. Scale to 512x512 (Bilinear)
+        # ffmpeg: scale=512:512:flags=bilinear
+        img = img.resize((512, 512), Image.Resampling.BILINEAR)
+
+        # 2. RGB -> Luminance -> Grayscale
+        # ffmpeg: format=rgb24, colorchannelmixer=..., format=gray
+        # PIL .convert("L") uses Rec. 601 coefficients (0.299, 0.587, 0.114) matches ffmpeg mixer
+        img = img.convert("L")
+
+        # 3. Box Blur (Radius 2, Power 2)
+        # ffmpeg: boxblur=2:2
+        img = img.filter(ImageFilter.BoxBlur(2))
+        img = img.filter(ImageFilter.BoxBlur(2))
+
+        # 4. Scale to 64x64 (Area)
+        # ffmpeg: scale=64:64:flags=area
+        # Use reduce(8) for true area averaging (512 / 8 = 64)
+        img = img.reduce(8)
 
     # Convert to numpy array (64x64)
-    img_data = np.array(img_resized, dtype=float)
+    img_data = np.array(img, dtype=float)
 
     # 4. Compute PDQ DCT
     # Forward: Output = D @ Input @ D.T

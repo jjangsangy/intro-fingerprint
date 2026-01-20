@@ -43,6 +43,11 @@ The script is in a functional and feature-complete state for its primary goal of
     - **Zero-Allocation**: Replaced temporary table creation (per-row `string.byte` tables) with direct `unpack` calls into local variables, eliminating thousands of allocations per scan.
     - **Cached Lookups**: Locally cached DCT matrix rows to avoid repeated table lookups inside inner loops.
     - **Result**: Achieved significant performance improvement (~10% raw throughput increase on top of previous optimizations, drastically reduced GC pressure).
+- **Enhanced Visual Quality Checks**: Reimplemented robust visual checks for saving video fingerprints to ensure high quality.
+    - **Mean Brightness**: Rejects frames that are too dark (< 5) or too bright (> 250).
+    - **Contrast (Variance)**: Rejects low-contrast/flat frames (StdDev < 10.0).
+    - **Entropy**: Rejects low-information frames (Entropy < 4.0).
+    - **Gradient Sum**: Retained PDQ's gradient-based quality check (> 0.01) to ensure feature richness.
 
 ## Current Focus
 - User feedback and stability improvements.

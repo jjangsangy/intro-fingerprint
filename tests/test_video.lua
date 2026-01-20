@@ -76,16 +76,32 @@ function TestVideo:test_compute_pdq_hash_ffi()
 end
 
 function TestVideo:test_validate_frame()
-    -- Case 1: Flat image (low gradient sum)
+    -- Case 1: Flat image (low contrast/gradient)
     local t = {}
     for i=1, 4096 do table.insert(t, string.char(100)) end
     local data_flat = table.concat(t)
 
     local valid, reason = video.validate_frame(data_flat, false)
     lu.assertFalse(valid)
-    lu.assertStrContains(reason, "Low Quality")
+    lu.assertStrContains(reason, "Low Contrast") -- Flat image has 0 std dev
 
-    -- Case 2: Random Noise (high gradient sum)
+    -- Case 2: Too Dark
+    t = {}
+    for i=1, 4096 do table.insert(t, string.char(2)) end
+    local data_dark = table.concat(t)
+    valid, reason = video.validate_frame(data_dark, false)
+    lu.assertFalse(valid)
+    lu.assertStrContains(reason, "Too Dark")
+
+    -- Case 3: Too Bright
+    t = {}
+    for i=1, 4096 do table.insert(t, string.char(255)) end
+    local data_bright = table.concat(t)
+    valid, reason = video.validate_frame(data_bright, false)
+    lu.assertFalse(valid)
+    lu.assertStrContains(reason, "Too Bright")
+
+    -- Case 4: Random Noise (high entropy, high variance)
     math.randomseed(12345)
     t = {}
     for i=1, 4096 do table.insert(t, string.char(math.random(0, 255))) end

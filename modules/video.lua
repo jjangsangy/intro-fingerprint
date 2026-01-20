@@ -360,15 +360,70 @@ function M.validate_frame(frame_data, is_ffi)
         get_pixel = function(idx) return string.byte(frame_data, idx + 1) end
     end
 
+    local len = BUFFER_W_H * BUFFER_W_H
+    local sum = 0
+    local counts = {} -- Histogram for entropy
+    for i = 0, 255 do counts[i] = 0 end
+
+    -- 1. Pass: Calculate Sum and Histogram
+    for i = 0, len - 1 do
+        local val = get_pixel(i)
+        sum = sum + val
+        counts[val] = counts[val] + 1
+    end
+
+    -- 2. Calculate Mean
+    local mean = sum / len
+
+    -- 3. Check Brightness (Too dark or Too bright/white)
+    -- Low brightness often means black screen/fade.
+    -- High brightness could be white flash or solid white.
+    if mean < 5 then
+        return false, string.format("Too Dark (Mean: %.1f)", mean)
+    end
+    if mean > 250 then
+        return false, string.format("Too Bright (Mean: %.1f)", mean)
+    end
+
+    -- 4. Calculate Standard Deviation and Entropy
+    local variance_sum = 0
+    local entropy = 0
+
+    for i = 0, len - 1 do
+        local val = get_pixel(i)
+        local diff = val - mean
+        variance_sum = variance_sum + (diff * diff)
+    end
+
+    for i = 0, 255 do
+        if counts[i] > 0 then
+            local p = counts[i] / len
+            entropy = entropy - (p * math.log(p) / math.log(2))
+        end
+    end
+
+    local std_dev = math.sqrt(variance_sum / len)
+
+    -- 5. Check Contrast (Standard Deviation)
+    -- A solid color (even if not black/white) will have near 0 std dev.
+    -- Normal scenes usually have std_dev > 20.
+    if std_dev < 10.0 then
+        return false, string.format("Low Contrast (StdDev: %.1f)", std_dev)
+    end
+
+    -- 6. Check Information Content (Entropy)
+    -- Max entropy for 8-bit is 8.0. Random noise is high.
+    -- Solid color is 0.
+    -- Typical complex scenes > 6.0.
+    -- Simple animations/logos might be 4.0-5.0.
+    if entropy < 4.0 then
+        return false, string.format("Low Information (Entropy: %.1f)", entropy)
+    end
+
+    -- 7. PDQ Gradient Sum Quality
     -- Quality = Gradient Sum / 90
     -- Gradient Sum = sum(|u - v|/255) for all adjacent pixels (Horiz and Vert)
-
     local gradient_sum = 0.0
-
-    -- Horizontal Gradients: (Rows - 1) x Cols ? No, Rows x (Cols - 1)
-    -- Rust code:
-    -- Loop 1: i in 0..ROWS-1, j in 0..COLS. |buf[i][j] - buf[i+1][j]| (Vertical diff)
-    -- Loop 2: i in 0..ROWS, j in 0..COLS-1. |buf[i][j] - buf[i][j+1]| (Horizontal diff)
 
     -- Vertical diffs
     for y = 0, BUFFER_W_H - 2 do
@@ -392,27 +447,15 @@ function M.validate_frame(frame_data, is_ffi)
         end
     end
 
-    -- Normalize by 255 (since pixels are 0-255, but Rust uses floats 0-255 so diff is 0-255)
     gradient_sum = gradient_sum / 255.0
-
     local quality = gradient_sum / 90.0
 
-    -- We want to reject if quality is too low?
-    -- Rust code doesn't reject, just returns quality.
-    -- High quality means high gradients (lots of detail/edges).
-    -- Low quality means flat/smooth (black screen, solid color).
-    -- A completely black frame has gradient_sum = 0 -> quality = 0.
-    -- We probably want to reject low quality frames.
-    -- PDQ doesn't specify a threshold for rejection, but we can infer.
-    -- Let's say quality < 0.01 (1%) is bad.
-
+    -- PDQ recommendation is check for gradients.
+    -- If we passed entropy/std_dev, we likely have variation,
+    -- but this ensures the variation has spatial structure (edges).
     if quality < 0.01 then
-        return false, "Low Quality (Gradient Sum)"
+        return false, string.format("Low Quality (Gradient: %.3f)", quality)
     end
-
-    -- Maybe also check variance like before?
-    -- PDQ quality metric essentially measures "feature richness".
-    -- Let's stick to this for now.
 
     return true, "Passed"
 end

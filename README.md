@@ -148,62 +148,59 @@ The script uses two primary methods for fingerprinting:
 
 # Quality Validation
 
-To prevent false positives and wasted scans, the script validates media quality before creating a fingerprint. If a fingerprint is rejected, you will see an "Audio Rejected" or "Frame Rejected" message.
+To prevent false positives and wasted scans, the script validates media quality before creating a fingerprint.
 
-- **Audio Rejection**:
-    - **Silence Detected**: Audio is too quiet (RMS < 0.005).
-    - **Signal Too Sparse**: Audio is mostly silence (< 10% active samples).
-    - **Low Complexity**: Audio lacks distinct frequency peaks (< 50 hashes generated).
+## Audio Validation
 
-- **Video Rejection**:
-    - **Low Quality**: The frame lacks sufficient detail or structure (Gradient Sum Quality < 0.01). This typically rejects black screens, solid colors, and very smooth gradients.
+If the audio is too simple or quiet, you will see an "Audio Rejected" message. This happens if:
+-   **Silence Detected**: Audio is too quiet (RMS < 0.005).
+-   **Signal Too Sparse**: Audio is mostly silence (< 10% active samples).
+-   **Low Complexity**: Audio lacks distinct frequency peaks (< 50 hashes generated).
 
-### Understanding Frame Rejection
+## Video Validation (Frame Rejection)
 
-To ensure robust matching, the system rejects frames that lack distinct **structural information**. This includes:
+To ensure robust matching, the system automatically validates frames before creating a fingerprint. A frame is **rejected** if it fails any of the following checks:
 
-1.  **Low Quality Scenes**: Solid colors, black screens, or smooth gradients. These contain almost no information, making the hash purely random noise.
+1.  **Extreme Brightness**: The image is almost entirely black (`Mean < 25`) or white (`Mean > 230`).
+2.  **Low Contrast**: The image looks flat with little variation in brightness (`StdDev < 10.0`).
+3.  **Low Structure**: The image lacks distinct edges or consists of smooth gradients (`Gradient Quality < 1.0`).
+4.  **Low Information**: The image is too simple or repetitive (`Entropy < 4.0`).
 
-#### **Why?**
-
-PDQ Hash works by analyzing the image's spatial gradients.
--   If an image is **too simple** (solid color), there are no gradients.
--   If an image is **too complex** (dense text), the fine details disappear when resized to 64x64.
+### Examples
 
 #### 1. Good Frame (Accepted)
 | Original Frame | What PDQ Hash Sees (64x64 -> 16x16 Low Freq) |
 | :---: | :---: |
 | ![Accepted](assets/samuel.webp) | ![Accepted pHash](assets/samuel_pdqhash.webp) |
 
-The image has **high contrast and distinct structure**. You can clearly see shapes that remain stable even after resizing and compression.
+**Reason: High Quality.**
+The image has distinct edges, good contrast, and clear shapes that remain visible even after resizing. This produces a strong, unique fingerprint.
 
-#### 2. Bad Frame (Noisy/Low-Contrast)
+#### 2. Bad Frame (Too Dark & Flat)
 | Original Frame | What PDQ Hash Sees |
 | :---: | :---: |
 | ![Rejected](assets/interstellar.webp) | ![Rejected pHash](assets/interstellar_pdqhash.webp) |
 
-**Reason: Low Quality.**
-The image is too dark and uniform. It lacks distinct gradients or edges needed for a stable hash.
+**Reason: Extreme Brightness & Low Contrast.**
+The scene is too dim to extract meaningful features. The PDQ algorithm effectively sees a black square, which would match *any* other dark scene.
 
-#### 3. Bad Frame (Gradient/Waves)
+#### 3. Bad Frame (Low Structure)
 | Original Frame | What PDQ Hash Sees |
 | :---: | :---: |
 | ![Waves](assets/waves.webp) | ![Waves pHash](assets/waves_pdqhash.webp) |
 
-**Reason: Low Quality.**
-The image relies on simple gradients without sharp transitions. This results in a low gradient sum, making the fingerprint unstable.
+**Reason: Lack of Sharp Edges.**
+The image consists of smooth color transitions (gradients) without any sharp lines. PDQ Hash relies on edge detection, so smooth blurs result in a weak fingerprint that fails the Gradient Quality check.
 
-#### 4. Bad Frame (Low Texture)
+#### 4. Weak Frame (Low Texture)
 | Original Frame | What PDQ Hash Sees |
 | :---: | :---: |
 | ![Betrayal](assets/betrayal.webp) | ![Betrayal pHash](assets/betrayal_pdqhash.webp) |
 
-**Reason: Low Quality.**
-The image is blurry and washed out, dominated by the background color rather than distinct structural details.
+**Reason: Low Feature Density.**
+While this frame technically passes the rejection thresholds, it is a borderline candidate. Large areas of the image are flat color (low texture), meaning the hash has fewer "anchors" than a highly detailed scene. It is better to choose a frame with more complex details if possible.
 
-**Always choose a frame with clear shapes, high contrast, and distinct objects.**
-
-If you encounter these errors, try moving the playback position slightly forward or backward to a more complex part of the intro (e.g., a scene with action or music).
+**Tip:** Always choose a frame with clear shapes, high contrast, and distinct objects. If you encounter errors, try moving the playback position slightly forward or backward to a more complex part of the intro.
 
 # Performance & Technical Details
 

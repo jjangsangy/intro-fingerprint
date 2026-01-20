@@ -378,10 +378,10 @@ function M.validate_frame(frame_data, is_ffi)
     -- 3. Check Brightness (Too dark or Too bright/white)
     -- Low brightness often means black screen/fade.
     -- High brightness could be white flash or solid white.
-    if mean < 5 then
+    if mean < 25 then
         return false, string.format("Too Dark (Mean: %.1f)", mean)
     end
-    if mean > 250 then
+    if mean > 230 then
         return false, string.format("Too Bright (Mean: %.1f)", mean)
     end
 
@@ -453,7 +453,7 @@ function M.validate_frame(frame_data, is_ffi)
     -- PDQ recommendation is check for gradients.
     -- If we passed entropy/std_dev, we likely have variation,
     -- but this ensures the variation has spatial structure (edges).
-    if quality < 0.01 then
+    if quality < 1.0 then
         return false, string.format("Low Quality (Gradient: %.3f)", quality)
     end
 

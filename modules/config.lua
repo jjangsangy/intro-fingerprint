@@ -19,11 +19,23 @@ M.options = {
     audio_concurrency = 4,           -- number of concurrent ffmpeg workers
     audio_min_match_ratio = 0.30,    -- minimum percentage of hashes that must match (0.0 - 1.0)
 
+    -- Audio: Quality Validation
+    audio_silence_threshold = 0.005, -- RMS amplitude threshold below which audio is considered silence
+    audio_sparsity_threshold = 0.10, -- Minimum signal density (non-zero samples ratio)
+    audio_min_complexity = 50,       -- Minimum number of hashes required for a valid fingerprint
+
     -- Video: Configuration
     video_hash_size = 64,          -- Hash size (64x64 input -> 16x16 DCT -> 256 bit hash)
     video_interval = 0.20,         -- time interval to check in seconds (0.20 = 200ms)
     video_threshold = 50,          -- tolerance for Hamming Distance (0-256).
     video_search_window = 10,      -- seconds before/after saved timestamp to search
+
+    -- Video: Quality Validation
+    video_min_brightness = 25,     -- Minimum mean brightness (0-255)
+    video_max_brightness = 230,    -- Maximum mean brightness (0-255)
+    video_min_contrast = 10.0,     -- Minimum standard deviation
+    video_min_entropy = 4.0,       -- Minimum entropy (0-8)
+    video_min_quality = 1.0,       -- Minimum gradient sum quality metric
     video_max_search_window = 300, -- stop expanding after this offset
     video_window_step = 30,        -- step size
 

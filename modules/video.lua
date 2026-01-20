@@ -378,10 +378,10 @@ function M.validate_frame(frame_data, is_ffi)
     -- 3. Check Brightness (Too dark or Too bright/white)
     -- Low brightness often means black screen/fade.
     -- High brightness could be white flash or solid white.
-    if mean < 25 then
+    if mean < config.options.video_min_brightness then
         return false, string.format("Too Dark (Mean: %.1f)", mean)
     end
-    if mean > 230 then
+    if mean > config.options.video_max_brightness then
         return false, string.format("Too Bright (Mean: %.1f)", mean)
     end
 
@@ -407,7 +407,7 @@ function M.validate_frame(frame_data, is_ffi)
     -- 5. Check Contrast (Standard Deviation)
     -- A solid color (even if not black/white) will have near 0 std dev.
     -- Normal scenes usually have std_dev > 20.
-    if std_dev < 10.0 then
+    if std_dev < config.options.video_min_contrast then
         return false, string.format("Low Contrast (StdDev: %.1f)", std_dev)
     end
 
@@ -416,7 +416,7 @@ function M.validate_frame(frame_data, is_ffi)
     -- Solid color is 0.
     -- Typical complex scenes > 6.0.
     -- Simple animations/logos might be 4.0-5.0.
-    if entropy < 4.0 then
+    if entropy < config.options.video_min_entropy then
         return false, string.format("Low Information (Entropy: %.1f)", entropy)
     end
 
@@ -453,7 +453,7 @@ function M.validate_frame(frame_data, is_ffi)
     -- PDQ recommendation is check for gradients.
     -- If we passed entropy/std_dev, we likely have variation,
     -- but this ensures the variation has spatial structure (edges).
-    if quality < 1.0 then
+    if quality < config.options.video_min_quality then
         return false, string.format("Low Quality (Gradient: %.3f)", quality)
     end
 

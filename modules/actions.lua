@@ -66,7 +66,7 @@ function M.capture_audio(path, time_pos)
     end
 
     local hashes, count = audio.process_audio_data(res_a.stdout)
-    if count < 50 then
+    if count < config.options.audio_min_complexity then
         utils.log_info("Audio Rejected: Low Complexity (" .. count .. " hashes)")
         ui.show_message("Audio Rejected: Low Complexity", 4)
         return false

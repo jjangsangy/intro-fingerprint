@@ -180,8 +180,8 @@ end
 -- @param pcm_str string - Raw audio data (s16le)
 -- @return boolean, string - Validity status and rejection reason (if any)
 function M.validate_audio(pcm_str)
-    local rms_threshold = 0.005
-    local sparsity_threshold = 0.10
+    local rms_threshold = config.options.audio_silence_threshold
+    local sparsity_threshold = config.options.audio_sparsity_threshold
     local sum_sq = 0
     local non_zero_count = 0
     local num_samples = 0

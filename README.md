@@ -98,7 +98,7 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 ## Video Options
 | Option                    | Default | Description                                                       |
 | :------------------------ | :------ | :---------------------------------------------------------------- |
-| `video_phash_size`        | `64`    | PDQ Hash size (64x64 DCT -> 16x16 hash).                          |
+| `video_hash_size`         | `64`    | Hash size (64x64 input -> 16x16 DCT -> 256 bit hash).             |
 | `video_threshold`         | `50`    | Tolerance for Hamming Distance (0-256). Lower is stricter.        |
 | `video_interval`          | `0.20`  | Time interval (seconds) between checked frames during video scan. |
 | `video_search_window`     | `10`    | Initial seconds before/after saved timestamp to search.           |

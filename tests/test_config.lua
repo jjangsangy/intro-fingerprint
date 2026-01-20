@@ -9,8 +9,8 @@ function TestConfig:test_defaults()
     lu.assertEquals(config.options.audio_fft_size, 2048)
 end
 
-function TestConfig:test_video_phash_size()
-    lu.assertEquals(config.options.video_phash_size, 64)
+function TestConfig:test_video_hash_size()
+    lu.assertEquals(config.options.video_hash_size, 64)
     -- Verify derived constant
     lu.assertEquals(config.VIDEO_FRAME_SIZE, 64 * 64)
 end

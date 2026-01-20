@@ -16,8 +16,14 @@ local ffmpeg_profiles = {
     extract_video = {
         fn = mp_utils.subprocess,
         build_args = function(p)
-            local vf_str = string.format("scale=%d:%d:flags=bilinear,format=gray",
-                config.options.video_hash_size, config.options.video_hash_size)
+            local vf_str = string.format([[
+                scale=512:512:flags=bilinear,
+                format=rgb24,
+                colorchannelmixer=rr=0.299:rg=0.587:rb=0.114:gr=0.299:gg=0.587:gb=0.114:br=0.299:bg=0.587:bb=0.114,
+                format=gray,
+                boxblur=2:2,
+                scale=%d:%d:flags=area
+            ]], config.options.video_hash_size, config.options.video_hash_size):gsub("%s+", "")
             return {
                 "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-hwaccel", "auto",
                 "-ss", tostring(p.time), "-i", p.path, "-map", "v:0",
@@ -47,8 +53,15 @@ local ffmpeg_profiles = {
     scan_video = {
         fn = mp.command_native_async,
         build_args = function(p)
-            local vf_str = string.format("fps=1/%s,scale=%d:%d:flags=bilinear,format=gray",
-                config.options.video_interval, config.options.video_hash_size, config.options.video_hash_size)
+            local vf_str = string.format([[
+                fps=1/%s,
+                scale=512:512:flags=bilinear,
+                format=rgb24,
+                colorchannelmixer=rr=0.299:rg=0.587:rb=0.114:gr=0.299:gg=0.587:gb=0.114:br=0.299:bg=0.587:bb=0.114,
+                format=gray,
+                boxblur=2:2,
+                scale=%d:%d:flags=area
+            ]], config.options.video_interval, config.options.video_hash_size, config.options.video_hash_size):gsub("%s+", "")
             return {
                 "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-hwaccel", "auto",
                 "-ss", tostring(p.start), "-t", tostring(p.duration),

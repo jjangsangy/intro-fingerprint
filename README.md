@@ -162,6 +162,9 @@ The script uses two primary methods for fingerprinting:
 - **Search Strategy**: The search starts around the timestamp of the saved fingerprint and expands outward.
 - **Optimization**: FFmpeg video decoding is the most expensive part of the pipeline. By assuming the intro is at a similar location (common in episodic content), we avoid decoding the entire stream, resulting in much faster scans.
 
+### Jarosz Filter Approximation
+The script approximates the Jarosz filter (essential for PDQ robustness) using an optimized FFmpeg chain: `scale=512:512`, `colorchannelmixer` (exact luminance), `boxblur=2:2` (Tent filter), and `scale=64:64:flags=area`.
+
 # Quality Validation
 
 To prevent false positives and wasted scans, the script validates media quality before creating a fingerprint.

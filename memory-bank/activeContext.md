@@ -37,6 +37,9 @@ The script is in a functional and feature-complete state for its primary goal of
     - Increasing frame extraction size to 64x64.
     - Implementing both FFI-optimized (matrix multiplication) and pure Lua fallback paths.
     - Updating distance metrics (Hamming distance on 256 bits) and validation logic (Gradient Sum).
+- **Jarosz Filter Optimization**: Refined the FFmpeg video preprocessing chain to more accurately approximate the Jarosz filter specified by the PDQ algorithm.
+    - **Chain**: `scale=512:512,format=rgb24,colorchannelmixer=...,boxblur=2:2,scale=64:64:flags=area`.
+    - **Purpose**: Provides exact luminance calculation and correct window sizing for 512$\to$64 downsampling (Tent Filter), matching the algorithm's robustness requirements against shifts and crops.
 - **PDQ Optimization (Pure Lua)**: Heavily optimized the pure Lua fallback for PDQ hashing.
     - **Memory Layout**: Switched to flat 1D arrays for intermediate results to improve cache locality and reduce table overhead.
     - **Loop Unrolling**: Implemented manual loop unrolling (chunks of 8) for hot paths to reduce instruction count.

@@ -94,7 +94,7 @@ flowchart TD
 ## Key Algorithms
 
 ### 1. Video Fingerprinting: PDQ Hash
-- **Extraction**: Resizes frame to 64x64 grayscale using FFmpeg `vf=scale=64:64,format=gray`.
+- **Extraction**: Preprocesses frame using an optimized **Jarosz filter approximation** chain: `scale=512:512`, `colorchannelmixer` (Luminance), `boxblur=2:2` (Tent Filter), `scale=64:64:flags=area`.
 - **Validation**: Rejects low-quality frames (flat, solid color) using PDQ's Image Domain Quality Metric (Gradient Sum / 90).
 - **Hashing**: Implements Meta's PDQ Hash algorithm.
     - **Input**: 64x64 Luminance buffer (4096 bytes).

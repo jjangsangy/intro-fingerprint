@@ -17,7 +17,7 @@ local ffmpeg_profiles = {
         fn = mp_utils.subprocess,
         build_args = function(p)
             local vf_str = string.format("scale=%d:%d:flags=bilinear,format=gray",
-                config.options.video_phash_size, config.options.video_phash_size)
+                config.options.video_hash_size, config.options.video_hash_size)
             return {
                 "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-hwaccel", "auto",
                 "-ss", tostring(p.time), "-i", p.path, "-map", "v:0",
@@ -48,7 +48,7 @@ local ffmpeg_profiles = {
         fn = mp.command_native_async,
         build_args = function(p)
             local vf_str = string.format("fps=1/%s,scale=%d:%d:flags=bilinear,format=gray",
-                config.options.video_interval, config.options.video_phash_size, config.options.video_phash_size)
+                config.options.video_interval, config.options.video_hash_size, config.options.video_hash_size)
             return {
                 "ffmpeg", "-hide_banner", "-loglevel", "fatal", "-hwaccel", "auto",
                 "-ss", tostring(p.start), "-t", tostring(p.duration),

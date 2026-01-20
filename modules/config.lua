@@ -20,7 +20,7 @@ M.options = {
     audio_min_match_ratio = 0.30,    -- minimum percentage of hashes that must match (0.0 - 1.0)
 
     -- Video: Configuration
-    video_phash_size = 64,         -- pHash size (64x64 input -> 16x16 DCT -> 256 bit hash)
+    video_hash_size = 64,          -- Hash size (64x64 input -> 16x16 DCT -> 256 bit hash)
     video_interval = 0.20,         -- time interval to check in seconds (0.20 = 200ms)
     video_threshold = 50,          -- tolerance for Hamming Distance (0-256).
     video_search_window = 10,      -- seconds before/after saved timestamp to search
@@ -42,6 +42,6 @@ M.options = {
 require('mp.options').read_options(M.options, 'intro-fingerprint')
 
 --- @var VIDEO_FRAME_SIZE number - Expected size of a grayscale video frame in bytes
-M.VIDEO_FRAME_SIZE = M.options.video_phash_size * M.options.video_phash_size
+M.VIDEO_FRAME_SIZE = M.options.video_hash_size * M.options.video_hash_size
 
 return M

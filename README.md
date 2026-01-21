@@ -200,7 +200,7 @@ The image has distinct edges, good contrast, and clear shapes that remain visibl
 | :---: | :---: |
 | ![Rejected](assets/interstellar.webp) | ![Rejected pHash](assets/interstellar_pdqhash.webp) |
 
-**Reason: Extreme Brightness & Low Contrast.**
+**Reason: Extremely Dark & Low Contrast.**
 The scene is too dim to extract meaningful features. The PDQ algorithm effectively sees a black square, which would match *any* other dark scene.
 
 #### 3. Bad Frame (Low Structure)

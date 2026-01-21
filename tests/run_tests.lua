@@ -81,6 +81,7 @@ require('tests.test_actions')
 require('tests.test_fingerprint_io')
 require('tests.test_fft_perf')
 require('tests.test_pdqhash')
+require('tests.test_pdqhash_e2e')
 
 -- 5. Run Tests
 local lu = require('tests.luaunit')

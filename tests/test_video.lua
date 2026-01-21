@@ -52,9 +52,10 @@ function TestVideo:test_compute_pdq_hash_ffi()
 
     -- Create a 64x64 image
     local data = ffi.new("uint8_t[4096]")
+    -- Use a diagonal gradient which is stable for PDQ DCT (avoids all-zero response)
     for y = 0, 63 do
         for x = 0, 63 do
-            local val = math.floor(y * 255 / 63)
+            local val = math.floor((x + y) * 255 / 126)
             data[y*64 + x] = val
         end
     end

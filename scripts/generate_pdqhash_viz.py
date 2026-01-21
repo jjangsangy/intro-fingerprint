@@ -7,7 +7,6 @@
 # ///
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
@@ -64,34 +63,25 @@ def process_image_pdq(img_path_or_obj, target_width=64, target_height=64):
         return process_pil(img_path_or_obj)
 
 
-def load_pdq_matrix(modules_path: Path) -> np.ndarray:
-    matrix_file = modules_path / "pdq_matrix.lua"
-    if not matrix_file.exists():
-        # Try finding it relative to current working directory if not found relative to script
-        matrix_file = Path("modules") / "pdq_matrix.lua"
-        if not matrix_file.exists():
-            print(
-                f"Error: Could not find pdq_matrix.lua in {modules_path} or ./modules"
-            )
-            sys.exit(1)
+def generate_pdq_matrix() -> np.ndarray:
+    """
+    Generates the PDQ DCT matrix.
+    Formula: D[u][x] = sqrt(2/64) * cos( (pi/64) * (x + 0.5) * u )
+    Where u is frequency index (1..16) and x is spatial index (0..63).
+    """
+    print("Generating PDQ matrix...")
 
-    print(f"Loading matrix from {matrix_file}...")
-    with open(matrix_file, "r", encoding="utf-8") as f:
-        content = f.read()
+    # u: frequency 1..16 (Rows)
+    u = np.arange(1, 17).reshape(-1, 1)
+    # x: spatial 0..63 (Cols)
+    x = np.arange(64).reshape(1, -1)
 
-    # Find all floating point numbers
-    # Matches: optional sign, digits, dot, digits, optional scientific notation
-    # This should capture numbers like 0.123, -0.123, 1.23e-5
-    floats = re.findall(r"[-+]?\d*\.\d+(?:[eE][-+]?\d+)?", content)
+    matrix = np.sqrt(2 / 64) * np.cos((np.pi / 64) * (x + 0.5) * u)
 
-    if len(floats) != 1024:  # 16 * 64
-        print(
-            f"Error: Expected 1024 coefficients in pdq_matrix.lua, found {len(floats)}"
-        )
-        sys.exit(1)
+    # Ensure shape is 16x64
+    assert matrix.shape == (16, 64)
 
-    data = np.array([float(x) for x in floats], dtype=float)
-    return data.reshape((16, 64))
+    return matrix
 
 
 def process_image(input_path: Path, output_path: Path, dct_matrix: np.ndarray) -> None:
@@ -154,13 +144,7 @@ def main() -> None:
         print(f"Error: {args.input} does not exist.")
         sys.exit(1)
 
-    # Locate modules directory relative to this script
-    script_dir = Path(__file__).resolve().parent
-    # Assuming standard structure: root/scripts/script.py and root/modules/
-    project_root = script_dir.parent
-    modules_dir = project_root / "modules"
-
-    dct_matrix = load_pdq_matrix(modules_dir)
+    dct_matrix = generate_pdq_matrix()
     process_image(args.input, args.output, dct_matrix)
 
 

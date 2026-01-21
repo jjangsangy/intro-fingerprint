@@ -5,12 +5,12 @@ local utils = require('modules.utils')
 TestPDQHash = {}
 
 --- Helper to generate a deterministic 64x64 grayscale image
--- Pattern: (x + y) % 256
+-- Pattern: smooth diagonal gradient
 local function generate_pattern_image()
     local t = {}
     for y = 0, 63 do
         for x = 0, 63 do
-            local val = (x + y) % 256
+            local val = math.floor((x + y) * 255 / 126)
             table.insert(t, string.char(val))
         end
     end

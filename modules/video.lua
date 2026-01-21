@@ -40,7 +40,7 @@ local ffi_double_arr
 if utils.ffi_status then
     local ffi = utils.ffi
     -- Create flat DCT matrix for FFI
-    ffi_dct_matrix = ffi.new("double[?]", DCT_OUTPUT_W_H * BUFFER_W_H)
+    ffi_dct_matrix = ffi.new("float[?]", DCT_OUTPUT_W_H * BUFFER_W_H)
     for i = 0, DCT_OUTPUT_W_H - 1 do
         for j = 0, BUFFER_W_H - 1 do
             ffi_dct_matrix[i * BUFFER_W_H + j] = DCT_MATRIX[i + 1][j + 1]
@@ -53,12 +53,9 @@ end
 -- @return number - Median value
 local function calculate_median(t)
     table.sort(t)
-    local len = #t
-    if len % 2 == 0 then
-        return (t[len / 2] + t[len / 2 + 1]) / 2
-    else
-        return t[math.ceil(len / 2)]
-    end
+    -- Match C++ Torben implementation (selects element at rank (n+1)/2)
+    -- For n=256, returns 128th element.
+    return t[math.floor((#t + 1) / 2)]
 end
 
 --- Compute PDQ Hash using FFI
@@ -73,8 +70,8 @@ local function compute_pdq_hash_ffi(bytes_ptr, start_index)
     -- Rust: intermediate[i][j] = sum(DCT[i][k] * input[k][j])
     -- Input is typically row-major [y][x]. input[k][j] means row k, col j.
 
-    -- Intermediate buffer: 16x64 (1024 doubles)
-    local intermediate = ffi.new("double[1024]")
+    -- Intermediate buffer: 16x64 (1024 floats)
+    local intermediate = ffi.new("float[1024]")
 
     -- Step 1: Intermediate = DCT * Input
     -- DCT is 16x64. Input is 64x64.
@@ -123,24 +120,12 @@ local function compute_pdq_hash_ffi(bytes_ptr, start_index)
 
     for i = 0, DCT_OUTPUT_MATRIX_SIZE - 1 do
         if output_vals[i + 1] > median then
-            local byte_idx = math.floor(i / 8) + 1
+            local byte_idx = HASH_LENGTH - math.floor(i / 8)
             local bit_idx = i % 8
-            -- PDQ Rust implementation: bit 0 is LSB or MSB?
-            -- Rust: byte |= 1 << j; where j is 0..7 loop.
-            -- hash[HASH_LENGTH - i - 1] = byte; (Wait, looking at rust code)
-            -- for i in 0..HASH_LENGTH { ... for j in 0..8 { ... 1<<j } ... }
-            -- It constructs bytes.
-            -- Let's stick to a consistent order: MSB first (bit 7 down to 0) or LSB first.
-            -- Existing pHash implementation used MSB first (1 << (7-bit_idx)).
-            -- Rust code: `byte |= 1 << j`. j goes 0..7. So input[i*8 + 0] is LSB.
-            -- To match Rust exactly might be tricky without strict ordering check.
-            -- As long as we are consistent (Reference vs Query), it works.
-            -- I'll use MSB first (1 << (7-bit_idx)) which is standard 'big-endian' bit order.
-
             if utils.bit_status then
-                hash[byte_idx] = utils.bit.bor(hash[byte_idx], utils.bit.lshift(1, 7 - bit_idx))
+                hash[byte_idx] = utils.bit.bor(hash[byte_idx], utils.bit.lshift(1, bit_idx))
             else
-                hash[byte_idx] = hash[byte_idx] + (2 ^ (7 - bit_idx))
+                hash[byte_idx] = hash[byte_idx] + (2 ^ bit_idx)
             end
         end
     end
@@ -304,12 +289,12 @@ local function compute_pdq_hash_lua(bytes, start_index)
 
     for i = 0, DCT_OUTPUT_MATRIX_SIZE - 1 do
         if output_vals[i + 1] > median then
-            local byte_idx = math.floor(i / 8) + 1
+            local byte_idx = HASH_LENGTH - math.floor(i / 8)
             local bit_idx = i % 8
             if utils.bit_status then
-                hash[byte_idx] = utils.bit.bor(hash[byte_idx], utils.bit.lshift(1, 7 - bit_idx))
+                hash[byte_idx] = utils.bit.bor(hash[byte_idx], utils.bit.lshift(1, bit_idx))
             else
-                hash[byte_idx] = hash[byte_idx] + (2 ^ (7 - bit_idx))
+                hash[byte_idx] = hash[byte_idx] + (2 ^ bit_idx)
             end
         end
     end

@@ -17,7 +17,8 @@ ln -sf "$WORKSPACE_DIR/main.lua" "$MPV_CONFIG_DIR/scripts/intro-fingerprint/main
 ln -sf "$WORKSPACE_DIR/modules" "$MPV_CONFIG_DIR/scripts/intro-fingerprint/modules"
 
 # configuration file
-ln -sf "$WORKSPACE_DIR/intro-fingerprint.conf" "$MPV_CONFIG_DIR/script-opts/intro-fingerprint.conf"
+# Create a copy with debug=yes instead of symlinking
+sed 's/^#debug=no/debug=yes/' "$WORKSPACE_DIR/intro-fingerprint.conf" > "$MPV_CONFIG_DIR/script-opts/intro-fingerprint.conf"
 
 # Create mpv.conf for headless dev environment
 cat <<EOF > "$MPV_CONFIG_DIR/mpv.conf"

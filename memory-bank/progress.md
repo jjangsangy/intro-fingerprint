@@ -23,6 +23,7 @@
 - [x] **DevContainer**: VS Code DevContainer for Ubuntu 24.04 with a custom-built `mpv-luajit` (v0.38.0) environment. Supports both X11 and Wayland (`wlshm`) video outputs for compatibility with WSLg.
 - [x] **Code Quality**: Refactored monolithic script to reduce branching and indentation depth using guard clauses.
 - [x] **CI/CD Fix**: Fixed GitHub Action and devcontainer setup script by removing `libs` references after `pocketfft` removal.
+- [x] **Fingerprint I/O Abstraction**: Extracted file operations into `modules/fingerprint_io.lua` for clean separation of concerns.
 - [x] **FFmpeg Abstraction Layer**: Refactored codebase to use a dedicated `modules/ffmpeg.lua` for all external process interactions.
 - [x] **Lua Modules & Standards**: Successfully refactored the project into a modular directory structure under `modules/`. Consolidated all architectural standards and coding best practices into `.clinerules/mpv-lua-practices.md` for consistent project enforcement.
 - [x] **Frame Quality Rejection**: Implemented a two-stage validation system (Spatial + DCT) to reject low-quality frames.

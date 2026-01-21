@@ -39,6 +39,7 @@ intro-fingerprint/
 │   ├── config.lua          # Configuration & defaults
 │   ├── ffmpeg.lua          # FFmpeg command wrapper
 │   ├── fft.lua             # FFT algorithms (Lua & FFI)
+│   ├── fingerprint_io.lua  # Fingerprint file I/O abstraction
 │   ├── pdq_matrix.lua      # PDQ Hash DCT matrix constants
 │   ├── state.lua           # Shared runtime state
 │   ├── ui.lua              # OSD feedback abstraction

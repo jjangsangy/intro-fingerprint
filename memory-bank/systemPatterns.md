@@ -27,6 +27,7 @@ flowchart TD
         FFmpeg[ffmpeg.lua]
         FFT[fft.lua]
         UI[ui.lua]
+        FPIO[fingerprint_io.lua]
     end
 
     subgraph Shared [Shared Utilities]
@@ -50,6 +51,7 @@ flowchart TD
     Actions --> State
     Actions --> Config
     Actions --> Utils
+    Actions --> FPIO
     Actions --> FS
 
     %% Video Scan Logic (Encapsulated)
@@ -83,6 +85,7 @@ flowchart TD
 | `main.lua` | Script entry point. Registers event listeners (e.g., `end-file` for cleanup) and binds user keys. |
 | `modules/config.lua` | Centralized configuration management. Defines default options and loads overrides via `mp.options`. |
 | `modules/actions.lua` | High-level business logic. Orchestrates fingerprint capture (`save_intro`) and asynchronous scanning (`skip_intro_video`, `skip_intro_audio`). |
+| `modules/fingerprint_io.lua` | Abstraction for reading/writing fingerprint files to the temporary directory. |
 | `modules/ffmpeg.lua` | FFmpeg command wrapper. Abstractly manages command profiles, construction, and sync/async execution. |
 | `modules/utils.lua` | Common utility functions. Handles FFI loading with fallbacks, async coroutine management, and path generation. |
 | `modules/ui.lua` | Simple abstraction for User Interface feedback via MPV's OSD. |

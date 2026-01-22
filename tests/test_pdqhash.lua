@@ -150,7 +150,7 @@ function TestPDQHash:test_quality_metrics_gradient()
     local img_gradient = table.concat(t)
 
     -- Check stats for gradient image:
-    -- Mean: ~60 (OK, > 25)
+    -- Mean: ~60 (OK, > 15)
     -- StdDev: ~35 (OK, > 10)
     -- Entropy: High (OK)
     -- Gradient Sum:

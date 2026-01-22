@@ -31,8 +31,8 @@ M.options = {
     video_search_window = 10,      -- seconds before/after saved timestamp to search
 
     -- Video: Quality Validation
-    video_min_brightness = 25,     -- Minimum mean brightness (0-255)
-    video_max_brightness = 230,    -- Maximum mean brightness (0-255)
+    video_min_brightness = 15,     -- Minimum mean brightness (0-255)
+    video_max_brightness = 240,    -- Maximum mean brightness (0-255)
     video_min_contrast = 10.0,     -- Minimum standard deviation
     video_min_entropy = 4.0,       -- Minimum entropy (0-8)
     video_min_quality = 50,        -- Minimum PDQ quality score (0-100)

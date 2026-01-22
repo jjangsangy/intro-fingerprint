@@ -128,15 +128,15 @@ def check_quality(image_path: Path):
         # 4. Gradient Sum Quality
         quality = calculate_gradient_sum_quality(img_array)
 
-        print(f"  Mean Brightness: {mean:.2f} (Threshold: 25 < x < 230)")
+        print(f"  Mean Brightness: {mean:.2f} (Threshold: 15 < x < 240)")
         print(f"  Contrast (StdDev): {std_dev:.2f} (Threshold: > 10.0)")
         print(f"  Entropy: {entropy:.2f} (Threshold: > 4.0)")
         print(f"  Gradient Quality: {quality:.4f} (Threshold: > 50)")
 
         failures = []
-        if mean < 25:
+        if mean < 15:
             failures.append(f"Too Dark (Mean: {mean:.1f})")
-        if mean > 230:
+        if mean > 240:
             failures.append(f"Too Bright (Mean: {mean:.1f})")
         if std_dev < 10.0:
             failures.append(f"Low Contrast (StdDev: {std_dev:.1f})")

@@ -116,8 +116,8 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 ### Video Validation Options
 | Option                    | Default | Description                                     |
 | :------------------------ | :------ | :---------------------------------------------- |
-| `video_min_brightness`    | `25`    | Minimum mean brightness (0-255).                |
-| `video_max_brightness`    | `230`   | Maximum mean brightness (0-255).                |
+| `video_min_brightness`    | `15`    | Minimum mean brightness (0-255).                |
+| `video_max_brightness`    | `240`   | Maximum mean brightness (0-255).                |
 | `video_min_contrast`      | `10.0`  | Minimum standard deviation.                     |
 | `video_min_entropy`       | `4.0`   | Minimum entropy (0-8).                          |
 | `video_min_quality`       | `50`    | Minimum PDQ quality score (0-100).              |
@@ -180,9 +180,9 @@ If the audio is too simple or quiet, you will see an "Audio Rejected" message. T
 
 To ensure robust matching, the system automatically validates frames before creating a fingerprint. A frame is **rejected** if it fails any of the following checks:
 
-1.  **Extreme Darkness/Brightness**: The image is almost entirely black (`Mean < 25`) or white (`Mean > 230`).
+1.  **Extreme Darkness/Brightness**: The image is almost entirely black (`Mean < 15`) or white (`Mean > 240`).
 2.  **Low Contrast**: The image looks flat with little variation in brightness (`StdDev < 10.0`).
-3.  **Low Structure**: The image lacks distinct edges or consists of smooth gradients (`Gradient Quality < 1.0`).
+3.  **Low Structure**: The image lacks distinct edges or consists of smooth gradients (`PDQ Quality < 50`).
 4.  **Low Information**: The image is too simple or repetitive (`Entropy < 4.0`).
 
 ### Examples

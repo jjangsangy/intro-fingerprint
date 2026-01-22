@@ -69,7 +69,7 @@ def main():
 
             computed_hash = bit_vector_to_hex(vector)
 
-            results.append(f"{img_path.name}:{computed_hash}")
+            results.append(f"{img_path.name}:{computed_hash}:{quality}")
 
         except Exception as e:
             print(f"[ERROR] processing {img_path.name}: {e}")

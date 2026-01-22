@@ -51,7 +51,9 @@ The script is in a functional and feature-complete state for its primary goal of
     - **Mean Brightness**: Rejects frames that are too dark (< 5) or too bright (> 250).
     - **Contrast (Variance)**: Rejects low-contrast/flat frames (StdDev < 10.0).
     - **Entropy**: Rejects low-information frames (Entropy < 4.0).
-    - **Gradient Sum**: Retained PDQ's gradient-based quality check (> 0.01) to ensure feature richness.
+    - **Gradient Sum**: Updated to use the official PDQ quantization logic (0-100 scale, threshold 50) to mask small noise and retain significant edges.
+
+- **PDQ Quality Metric Update**: Updated the video quality metric to use the official "integer-quantized" gradient sum logic from ThreatExchange/PDQ. This provides a normalized 0-100 score (replacing the previous raw metric) to robustly identify featureless frames.
 
 ## Current Focus
 - User feedback and stability improvements.

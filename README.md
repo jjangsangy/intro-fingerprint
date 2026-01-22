@@ -120,7 +120,7 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 | `video_max_brightness`    | `230`   | Maximum mean brightness (0-255).                |
 | `video_min_contrast`      | `10.0`  | Minimum standard deviation.                     |
 | `video_min_entropy`       | `4.0`   | Minimum entropy (0-8).                          |
-| `video_min_quality`       | `1.0`   | Minimum gradient sum quality metric.            |
+| `video_min_quality`       | `50`    | Minimum PDQ quality score (0-100).              |
 
 ## File Paths
 | Option                | Default                       | Description                      |

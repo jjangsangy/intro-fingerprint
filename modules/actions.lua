@@ -22,13 +22,14 @@ function M.capture_video(path, time_pos)
     local res_v = ffmpeg.run_task('extract_video', { time = time_pos, path = path })
 
     if res_v and res_v.status == 0 and res_v.stdout and #res_v.stdout > 0 then
-        local valid, reason = video.validate_frame(res_v.stdout, false)
+        local valid, reason, quality = video.validate_frame(res_v.stdout, false)
         if not valid then
             utils.log_info("Frame Rejected: " .. reason)
             ui.show_message("Frame Rejected: " .. reason, 4)
             return false
         end
 
+        utils.log_info(string.format("Frame Accepted (Quality: %d)", quality))
         fingerprint_io.write_video(time_pos, res_v.stdout)
         return true
     else

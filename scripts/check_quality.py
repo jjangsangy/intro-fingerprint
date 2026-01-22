@@ -79,28 +79,32 @@ def calculate_entropy(data):
 
 
 def calculate_gradient_sum_quality(img_array):
-    """Calculate PDQ Gradient Sum Quality."""
+    """Calculate PDQ Gradient Sum Quality (Quantized)."""
     # img_array is 64x64 numpy array
     # Lua logic:
-    # Gradient Sum = sum(|u - v|) for all adjacent pixels (Horiz and Vert)
-    # Then divide by 255.0
-    # Quality = Gradient Sum / 90.0
+    # d = floor(|u-v| * 100 / 255)
+    # Gradient Sum = sum(d)
+    # Quality = floor(Gradient Sum / 90)
+    # Capped at 100
 
     h, w = img_array.shape
-    gradient_sum = 0.0
+    gradient_sum = 0
 
     # Vertical diffs (y loops 0 to h-2)
-    # u = pixel[y, x], v = pixel[y+1, x]
     diff_y = np.abs(img_array[:-1, :] - img_array[1:, :])
-    gradient_sum += np.sum(diff_y)
+    # Quantize
+    d_y = np.floor(diff_y * 100 / 255).astype(int)
+    gradient_sum += np.sum(d_y)
 
     # Horizontal diffs (x loops 0 to w-2)
-    # u = pixel[y, x], v = pixel[y, x+1]
     diff_x = np.abs(img_array[:, :-1] - img_array[:, 1:])
-    gradient_sum += np.sum(diff_x)
+    # Quantize
+    d_x = np.floor(diff_x * 100 / 255).astype(int)
+    gradient_sum += np.sum(d_x)
 
-    gradient_sum = gradient_sum / 255.0
-    quality = gradient_sum / 90.0
+    quality = int(gradient_sum / 90)
+    if quality > 100:
+        quality = 100
     return quality
 
 
@@ -127,7 +131,7 @@ def check_quality(image_path: Path):
         print(f"  Mean Brightness: {mean:.2f} (Threshold: 25 < x < 230)")
         print(f"  Contrast (StdDev): {std_dev:.2f} (Threshold: > 10.0)")
         print(f"  Entropy: {entropy:.2f} (Threshold: > 4.0)")
-        print(f"  Gradient Quality: {quality:.4f} (Threshold: > 1.0)")
+        print(f"  Gradient Quality: {quality:.4f} (Threshold: > 50)")
 
         failures = []
         if mean < 25:
@@ -138,7 +142,7 @@ def check_quality(image_path: Path):
             failures.append(f"Low Contrast (StdDev: {std_dev:.1f})")
         if entropy < 4.0:
             failures.append(f"Low Information (Entropy: {entropy:.1f})")
-        if quality < 1.0:
+        if quality < 50:
             failures.append(f"Low Quality (Gradient: {quality:.3f})")
 
         if failures:

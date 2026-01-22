@@ -12,9 +12,9 @@ function TestPDQHashE2E:setUp()
     local f = io.open("tests/images/reference_hashes.txt", "r")
     if f then
         for line in f:lines() do
-            local filename, hash = line:match("([^:]+):(%x+)")
+            local filename, hash, quality = line:match("([^:]+):(%x+):?(%d*)")
             if filename and hash then
-                self.references[filename] = hash
+                self.references[filename] = { hash = hash, quality = tonumber(quality) }
             end
         end
         f:close()
@@ -30,7 +30,10 @@ function TestPDQHashE2E:test_e2e_hashing()
 
     local temp_dir = utils.get_temp_dir()
 
-    for filename, ref_hex in pairs(self.references) do
+    for filename, ref_data in pairs(self.references) do
+        local ref_hex = ref_data.hash
+        local ref_quality = ref_data.quality
+
         -- 1. Load Image using FFmpeg via temp file (cross-platform safe)
         local temp_filename = string.format("test_pdq_%s_%d.raw", filename, os.time())
         local temp_path = mp_utils.join_path(temp_dir, temp_filename)
@@ -76,17 +79,31 @@ function TestPDQHashE2E:test_e2e_hashing()
             table.insert(ref_bytes, tonumber(ref_hex:sub(i, i+1), 16))
         end
 
-        -- 3. Test Pure Lua
+        -- 3. Test Quality Metric (if reference available)
+        if ref_quality then
+            local valid, reason, quality_score = video.validate_frame(pixels, false)
+            -- Allow slight deviation (±5) due to floating point/rounding differences in processing chain
+            lu.assertTrue(math.abs(quality_score - ref_quality) <= 5, string.format("Quality mismatch for %s: Got %d, Expected %d", filename, quality_score, ref_quality))
+        end
+
+        -- 4. Test Pure Lua
         local hash_lua = video.compute_pdq_hash_lua(pixels, 0)
         local dist_lua = video.video_hamming_distance(hash_lua, ref_bytes)
 
-        -- 4. Test FFI (if available)
+        -- 5. Test FFI (if available)
         if utils.ffi_status then
              local ffi = utils.ffi
              local buf = ffi.new("uint8_t[?]", 4096)
              for i = 0, 4095 do
                  buf[i] = string.byte(pixels, i + 1)
              end
+
+             -- Test FFI Quality Metric
+             if ref_quality then
+                local valid, reason, quality_score = video.validate_frame(buf, true)
+                lu.assertTrue(math.abs(quality_score - ref_quality) <= 5, string.format("FFI Quality mismatch for %s: Got %d, Expected %d", filename, quality_score, ref_quality))
+             end
+
              local hash_ffi = video.compute_pdq_hash_ffi(buf, 0)
              local dist_ffi = video.video_hamming_distance(hash_ffi, ref_bytes)
 

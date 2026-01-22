@@ -134,27 +134,28 @@ function TestPDQHash:test_quality_metrics_gradient()
     -- A checkerboard of large squares (e.g. 32x32) has few edges.
     -- A checkerboard of 1x1 pixels has MAXIMUM gradient.
 
-    -- Let's make a "Horizontal Gradient" image (0..255).
-    -- Rows are identical 0..255 gradient.
+    -- Let's make a "Horizontal Gradient" image (0..120).
+    -- Rows are identical 0..120 gradient.
+    -- This creates a smooth gradient where adjacent pixels differ by < 2.
+    -- New Metric: floor(diff * 100 / 255) -> floor(1.9 * 0.39) = 0.
+    -- So Quality = 0.
+    -- But StdDev is still high (~35), so it passes Contrast check.
     t = {}
     for y=0, 63 do
         for x=0, 63 do
-            local val = math.floor(x * 255 / 63)
+            local val = math.floor(x * 120 / 63)
             table.insert(t, string.char(val))
         end
     end
     local img_gradient = table.concat(t)
 
     -- Check stats for gradient image:
-    -- Mean: ~127 (OK)
-    -- StdDev: ~74 (OK)
-    -- Entropy: High (~6-8 bits) (OK)
+    -- Mean: ~60 (OK, > 25)
+    -- StdDev: ~35 (OK, > 10)
+    -- Entropy: High (OK)
     -- Gradient Sum:
-    -- Horizontal diff is constant ~4 (255/63).
-    -- Vertical diff is 0.
-    -- Total diff sum ~ 4 * 64 * 64 = 16384.
-    -- Normalized: 16384 / 255 = 64.
-    -- Quality = 64 / 90 = 0.71.
+    -- Horizontal diff is ~1.9. Quantized d = 0.
+    -- Quality = 0.
     -- Default min quality is 1.0. So this SHOULD FAIL.
 
     valid, reason = video.validate_frame(img_gradient, false)

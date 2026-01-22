@@ -1,4 +1,5 @@
 local mp = require 'mp'
+local msg = require 'mp.msg'
 local config = require 'modules.config'
 local utils = require 'modules.utils'
 local ffmpeg = require 'modules.ffmpeg'
@@ -360,18 +361,7 @@ function M.validate_frame(frame_data, is_ffi)
     -- 2. Calculate Mean
     local mean = sum / len
 
-    -- 3. Check Brightness (Too dark or Too bright/white)
-    -- Low brightness often means black screen/fade.
-    -- High brightness could be white flash or solid white.
-    utils.log_info(string.format("Video Quality: Brightness=%.2f (Min=%.1f, Max=%.1f)", mean, config.options.video_min_brightness, config.options.video_max_brightness))
-    if mean < config.options.video_min_brightness then
-        return false, string.format("Too Dark (Mean: %.1f)", mean)
-    end
-    if mean > config.options.video_max_brightness then
-        return false, string.format("Too Bright (Mean: %.1f)", mean)
-    end
-
-    -- 4. Calculate Standard Deviation and Entropy
+    -- 3. Calculate Standard Deviation and Entropy
     local variance_sum = 0
     local entropy = 0
 
@@ -390,28 +380,10 @@ function M.validate_frame(frame_data, is_ffi)
 
     local std_dev = math.sqrt(variance_sum / len)
 
-    -- 5. Check Contrast (Standard Deviation)
-    -- A solid color (even if not black/white) will have near 0 std dev.
-    -- Normal scenes usually have std_dev > 20.
-    utils.log_info(string.format("Video Quality: Contrast (StdDev)=%.2f (Min=%.1f)", std_dev, config.options.video_min_contrast))
-    if std_dev < config.options.video_min_contrast then
-        return false, string.format("Low Contrast (StdDev: %.1f)", std_dev)
-    end
-
-    -- 6. Check Information Content (Entropy)
-    -- Max entropy for 8-bit is 8.0. Random noise is high.
-    -- Solid color is 0.
-    -- Typical complex scenes > 6.0.
-    -- Simple animations/logos might be 4.0-5.0.
-    utils.log_info(string.format("Video Quality: Entropy=%.2f (Min=%.1f)", entropy, config.options.video_min_entropy))
-    if entropy < config.options.video_min_entropy then
-        return false, string.format("Low Information (Entropy: %.1f)", entropy)
-    end
-
-    -- 7. PDQ Gradient Sum Quality
+    -- 4. Calculate PDQ Gradient Sum Quality (Quantized)
     -- Quality = Gradient Sum / 90
-    -- Gradient Sum = sum(|u - v|/255) for all adjacent pixels (Horiz and Vert)
-    local gradient_sum = 0.0
+    -- Gradient Sum = sum( floor(|u - v| * 100 / 255) )
+    local gradient_sum = 0
 
     -- Vertical diffs
     for y = 0, BUFFER_W_H - 2 do
@@ -420,7 +392,8 @@ function M.validate_frame(frame_data, is_ffi)
             local idx2 = (y + 1) * BUFFER_W_H + x
             local u = get_pixel(idx1)
             local v = get_pixel(idx2)
-            gradient_sum = gradient_sum + math.abs(u - v)
+            local d = math.floor(math.abs(u - v) * 100 / 255)
+            gradient_sum = gradient_sum + d
         end
     end
 
@@ -431,22 +404,45 @@ function M.validate_frame(frame_data, is_ffi)
             local idx2 = y * BUFFER_W_H + x + 1
             local u = get_pixel(idx1)
             local v = get_pixel(idx2)
-            gradient_sum = gradient_sum + math.abs(u - v)
+            local d = math.floor(math.abs(u - v) * 100 / 255)
+            gradient_sum = gradient_sum + d
         end
     end
 
-    gradient_sum = gradient_sum / 255.0
-    local quality = gradient_sum / 90.0
+    local quality = math.floor(gradient_sum / 90)
+    if quality > 100 then quality = 100 end
 
-    -- PDQ recommendation is check for gradients.
-    -- If we passed entropy/std_dev, we likely have variation,
-    -- but this ensures the variation has spatial structure (edges).
-    utils.log_info(string.format("Video Quality: Gradient=%.4f (Min=%.4f)", quality, config.options.video_min_quality))
-    if quality < config.options.video_min_quality then
-        return false, string.format("Low Quality (Gradient: %.3f)", quality)
+    -- 5. Log All Stats (Ensure visibility)
+    msg.info(string.format("Video Quality: Brightness=%.2f (Min=%.1f, Max=%.1f)", mean, config.options.video_min_brightness, config.options.video_max_brightness))
+    msg.info(string.format("Video Quality: Contrast (StdDev)=%.2f (Min=%.1f)", std_dev, config.options.video_min_contrast))
+    msg.info(string.format("Video Quality: Entropy=%.2f (Min=%.1f)", entropy, config.options.video_min_entropy))
+    msg.info(string.format("Video Quality: PDQ Quality=%d (Min=%d)", quality, config.options.video_min_quality))
+
+    -- 6. Perform Checks
+    -- Check Brightness (Too dark or Too bright/white)
+    if mean < config.options.video_min_brightness then
+        return false, string.format("Too Dark (Mean: %.1f)", mean)
+    end
+    if mean > config.options.video_max_brightness then
+        return false, string.format("Too Bright (Mean: %.1f)", mean)
     end
 
-    return true, "Passed"
+    -- Check Contrast (Standard Deviation)
+    if std_dev < config.options.video_min_contrast then
+        return false, string.format("Low Contrast (StdDev: %.1f)", std_dev)
+    end
+
+    -- Check Information Content (Entropy)
+    if entropy < config.options.video_min_entropy then
+        return false, string.format("Low Information (Entropy: %.1f)", entropy)
+    end
+
+    -- PDQ recommendation is check for gradients.
+    if quality < config.options.video_min_quality then
+        return false, string.format("Low Quality (Gradient: %d)", quality), quality
+    end
+
+    return true, "Passed", quality
 end
 
 --- Scan a segment of video for a matching PDQ hash

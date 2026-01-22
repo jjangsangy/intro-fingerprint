@@ -180,7 +180,7 @@ If the audio is too simple or quiet, you will see an "Audio Rejected" message. T
 
 To ensure robust matching, the system automatically validates frames before creating a fingerprint. A frame is **rejected** if it fails any of the following checks:
 
-1.  **Extreme Brightness**: The image is almost entirely black (`Mean < 25`) or white (`Mean > 230`).
+1.  **Extreme Darkness/Brightness**: The image is almost entirely black (`Mean < 25`) or white (`Mean > 230`).
 2.  **Low Contrast**: The image looks flat with little variation in brightness (`StdDev < 10.0`).
 3.  **Low Structure**: The image lacks distinct edges or consists of smooth gradients (`Gradient Quality < 1.0`).
 4.  **Low Information**: The image is too simple or repetitive (`Entropy < 4.0`).

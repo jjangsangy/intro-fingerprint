@@ -157,7 +157,7 @@ The script uses two primary methods for fingerprinting:
 
 ![Perceptual Hashing](assets/gradient-hashing.svg)
 
-- **Algorithm**: Resizes frames to 64x64 grayscale and computes the Discrete Cosine Transform (DCT) of the rows and columns. A 256-bit hash (32 bytes) is generated from the low-frequency 16x16 coefficients by comparing each coefficient against the median value.
+- **Algorithm**: Downsamples frames to 512x512, converts to grayscale (Luma), and applies a 2-pass Jarosz filter. Then, resizes to 64x64 and computes the Discrete Cosine Transform (DCT) of the rows and columns. A 256-bit hash (32 bytes) is generated from the low-frequency 16x16 coefficients by comparing each coefficient against the median value.
 - **Matching**: Uses Hamming Distance (count of differing bits). It is robust against color changes, small aspect ratio variations, and high-frequency noise.
 - **Search Strategy**: The search starts around the timestamp of the saved fingerprint and expands outward.
 - **Optimization**: FFmpeg video decoding is the most expensive part of the pipeline. By assuming the intro is at a similar location (common in episodic content), we avoid decoding the entire stream, resulting in much faster scans.

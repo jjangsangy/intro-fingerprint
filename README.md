@@ -135,36 +135,6 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 | `key_skip_video` | `Ctrl+Shift+s` | Key binding to skip using video fingerprinting. |
 | `key_skip_audio` | `Ctrl+s`       | Key binding to skip using audio fingerprinting. |
 
-# How it Works
-
-The script uses two primary methods for fingerprinting:
-
-## 1. Audio Fingerprinting (Constellation Hashing)
-
-![Constellation Hashing](assets/constellation-hashing.svg)
-
-- **Algorithm**: Extracts audio using FFmpeg (s16le, mono) and performs FFT to identify peak frequencies in time-frequency bins.
-- **Hashing**: Pairs peaks to form hashes: `[f1][f2][delta_time]`.
-- **Matching**: Uses a **Global Offset Histogram**. Every match calculates $Offset = T_{file} - T_{query}$, and the script looks for the largest cluster (peak) of consistent offsets.
-- **Filtering**: Implements **Match Ratio** filtering (default 30%) to ensure the match is an exact fingerprint overlap rather than just similar-sounding music.
-- **Search Strategy**: **Concurrent Linear Scan**. The timeline is divided into contiguous segments (e.g., 10s). Each segment is processed by a concurrent worker with sufficient padding to ensure no matches are lost at segment boundaries. Hashes are filtered to prevent double-counting in overlapping regions.
-- **Optimization**:
-    - **Concurrency**: Launches multiple parallel FFmpeg workers to utilize all CPU cores.
-    - **Inverted Index**: Uses an $O(1)$ hash-map for near-instant lookup of fingerprints during the scan.
-    - **Optimal Stopping**: Scans terminate immediately once a high-confidence match is confirmed and the signal gradient drops.
-
-## 2. Video Fingerprinting (PDQ Hash)
-
-![Perceptual Hashing](assets/gradient-hashing.svg)
-
-- **Algorithm**: Downsamples frames to 512x512, converts to grayscale (Luma), and applies a 2-pass Jarosz filter. Then, resizes to 64x64 and computes the Discrete Cosine Transform (DCT) of the rows and columns. A 256-bit hash (32 bytes) is generated from the low-frequency 16x16 coefficients by comparing each coefficient against the median value.
-- **Matching**: Uses Hamming Distance (count of differing bits). It is robust against color changes, small aspect ratio variations, and high-frequency noise.
-- **Search Strategy**: The search starts around the timestamp of the saved fingerprint and expands outward.
-- **Optimization**: FFmpeg video decoding is the most expensive part of the pipeline. By assuming the intro is at a similar location (common in episodic content), we avoid decoding the entire stream, resulting in much faster scans.
-
-### Jarosz Filter Approximation
-The script approximates the Jarosz filter (essential for PDQ robustness) using an optimized FFmpeg filter chain: `scale=512:512:flags=bilinear`, `colorchannelmixer` (exact luminance), `avgblur=sizeX=4:sizeY=4` (applied twice), and `scale=64:64:flags=neighbor`. This configuration matches closely but is not exact with the official [PDQ C++ implementation](https://github.com/facebook/ThreatExchange).
-
 # Quality Validation
 
 To prevent false positives and wasted scans, the script validates media quality before creating a fingerprint.
@@ -220,6 +190,36 @@ The image consists of smooth color transitions (gradients) without any sharp lin
 While this frame technically passes the rejection thresholds, it is a borderline candidate. Large areas of the image are flat color (low texture), meaning the hash has fewer "anchors" than a highly detailed scene. It is better to choose a frame with more complex details if possible.
 
 **Tip:** Always choose a frame with clear shapes, high contrast, and distinct objects. If you encounter errors, try moving the playback position slightly forward or backward to a more complex part of the intro.
+
+# How it Works
+
+The script uses two primary methods for fingerprinting:
+
+## 1. Audio Fingerprinting (Constellation Hashing)
+
+![Constellation Hashing](assets/constellation-hashing.svg)
+
+- **Algorithm**: Extracts audio using FFmpeg (s16le, mono) and performs FFT to identify peak frequencies in time-frequency bins.
+- **Hashing**: Pairs peaks to form hashes: `[f1][f2][delta_time]`.
+- **Matching**: Uses a **Global Offset Histogram**. Every match calculates $Offset = T_{file} - T_{query}$, and the script looks for the largest cluster (peak) of consistent offsets.
+- **Filtering**: Implements **Match Ratio** filtering (default 30%) to ensure the match is an exact fingerprint overlap rather than just similar-sounding music.
+- **Search Strategy**: **Concurrent Linear Scan**. The timeline is divided into contiguous segments (e.g., 10s). Each segment is processed by a concurrent worker with sufficient padding to ensure no matches are lost at segment boundaries. Hashes are filtered to prevent double-counting in overlapping regions.
+- **Optimization**:
+    - **Concurrency**: Launches multiple parallel FFmpeg workers to utilize all CPU cores.
+    - **Inverted Index**: Uses an $O(1)$ hash-map for near-instant lookup of fingerprints during the scan.
+    - **Optimal Stopping**: Scans terminate immediately once a high-confidence match is confirmed and the signal gradient drops.
+
+## 2. Video Fingerprinting (PDQ Hash)
+
+![Perceptual Hashing](assets/gradient-hashing.svg)
+
+- **Algorithm**: Downsamples frames to 512x512, converts to grayscale (Luma), and applies a 2-pass Jarosz filter. Then, resizes to 64x64 and computes the Discrete Cosine Transform (DCT) of the rows and columns. A 256-bit hash (32 bytes) is generated from the low-frequency 16x16 coefficients by comparing each coefficient against the median value.
+- **Matching**: Uses Hamming Distance (count of differing bits). It is robust against color changes, small aspect ratio variations, and high-frequency noise.
+- **Search Strategy**: The search starts around the timestamp of the saved fingerprint and expands outward.
+- **Optimization**: FFmpeg video decoding is the most expensive part of the pipeline. By assuming the intro is at a similar location (common in episodic content), we avoid decoding the entire stream, resulting in much faster scans.
+
+### Jarosz Filter Approximation
+The script approximates the Jarosz filter (essential for PDQ robustness) using an optimized FFmpeg filter chain: `scale=512:512:flags=bilinear`, `colorchannelmixer` (exact luminance), `avgblur=sizeX=4:sizeY=4` (applied twice), and `scale=64:64:flags=neighbor`. This configuration matches closely but is not exact with the official [PDQ C++ implementation](https://github.com/facebook/ThreatExchange).
 
 # Performance & Technical Details
 

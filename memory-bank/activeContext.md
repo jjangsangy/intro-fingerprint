@@ -54,6 +54,10 @@ The script is in a functional and feature-complete state for its primary goal of
     - **Gradient Sum**: Updated to use the official PDQ quantization logic (0-100 scale, threshold 50) to mask small noise and retain significant edges.
 
 - **PDQ Quality Metric Update**: Updated the video quality metric to use the official "integer-quantized" gradient sum logic from ThreatExchange/PDQ. This provides a normalized 0-100 score (replacing the previous raw metric) to robustly identify featureless frames.
+- **Persistent Fingerprint Storage**: Moved fingerprint storage from the system temporary directory to a dedicated `fingerprints/` subdirectory within the script's installation folder.
+    - Implemented `modules/sys.lua` to handle cross-platform directory creation and path resolution.
+    - Updated `modules/fingerprint_io.lua` to use the new location.
+    - Updated test suite to mock `sys` and force tests to use the temporary directory, preventing test artifacts from polluting the persistent storage.
 
 ## Current Focus
 - User feedback and stability improvements.

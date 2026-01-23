@@ -68,6 +68,14 @@ local mp_mock = mocks.create_mp()
 -- Preload 'mp' and its sub-modules
 mocks.init_preload(mp_mock)
 
+-- Mock modules.sys for all tests to use temp dir
+local mock_sys = {}
+function mock_sys.make_directory(path) end
+function mock_sys.get_fingerprint_dir()
+    return os.getenv("TEMP") or os.getenv("TMP") or os.getenv("TMPDIR") or "/tmp"
+end
+package.loaded['modules.sys'] = mock_sys
+
 -- 4. Load Test Files
 require('tests.test_config')
 require('tests.test_utils')

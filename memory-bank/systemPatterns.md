@@ -34,6 +34,7 @@ flowchart TD
         Utils[utils.lua]
         State[state.lua]
         Config[config.lua]
+        Sys[sys.lua]
     end
 
     subgraph External [External Resources]
@@ -76,6 +77,8 @@ flowchart TD
     Utils --> Config
     Utils --> API
     UI --> API
+    FPIO --> Sys
+    Sys --> API
 ```
 
 ## Module Responsibilities
@@ -85,9 +88,10 @@ flowchart TD
 | `main.lua` | Script entry point. Registers event listeners (e.g., `end-file` for cleanup) and binds user keys. |
 | `modules/config.lua` | Centralized configuration management. Defines default options and loads overrides via `mp.options`. |
 | `modules/actions.lua` | High-level business logic. Orchestrates fingerprint capture (`save_intro`) and asynchronous scanning (`skip_intro_video`, `skip_intro_audio`). |
-| `modules/fingerprint_io.lua` | Abstraction for reading/writing fingerprint files to the temporary directory. |
+| `modules/fingerprint_io.lua` | Abstraction for reading/writing fingerprint files. Uses `sys.lua` for directory resolution. |
 | `modules/ffmpeg.lua` | FFmpeg command wrapper. Abstractly manages command profiles, construction, and sync/async execution. |
 | `modules/utils.lua` | Common utility functions. Handles FFI loading with fallbacks, async coroutine management, and path generation. |
+| `modules/sys.lua` | System abstraction for directory creation and cross-platform path management. |
 | `modules/ui.lua` | Simple abstraction for User Interface feedback via MPV's OSD. |
 | `modules/state.lua` | Encapsulates shared runtime state (e.g., `scanning` flag) to prevent race conditions and manage task cancellation. |
 | `modules/video.lua` | Implements video pHash calculation and segment scanning logic. |

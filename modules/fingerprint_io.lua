@@ -2,21 +2,22 @@ local mp = require 'mp'
 local mp_utils = require 'mp.utils'
 local config = require 'modules.config'
 local utils = require 'modules.utils'
+local sys = require 'modules.sys'
 
 local M = {}
 
 --- Get the full path for the video fingerprint file
 -- @return string - Full path to the video fingerprint file
 function M.get_video_fingerprint_path()
-    local temp_dir = utils.get_temp_dir()
-    return mp_utils.join_path(temp_dir, config.options.video_temp_filename)
+    local dir = sys.get_fingerprint_dir()
+    return mp_utils.join_path(dir, config.options.video_temp_filename)
 end
 
 --- Get the full path for the audio fingerprint file
 -- @return string - Full path to the audio fingerprint file
 function M.get_audio_fingerprint_path()
-    local temp_dir = utils.get_temp_dir()
-    return mp_utils.join_path(temp_dir, config.options.audio_temp_filename)
+    local dir = sys.get_fingerprint_dir()
+    return mp_utils.join_path(dir, config.options.audio_temp_filename)
 end
 
 --- Write video fingerprint to file

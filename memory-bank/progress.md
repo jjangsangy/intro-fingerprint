@@ -43,6 +43,7 @@
   - [ ] **Logging Fingerprint Match**: Log which fingerprint from which file is being matched.
   - [ ] **Deduplication**: Ensure we don't save duplicate fingerprints for the same section multiple times.
   - [x] **Move Fingerprints**: Move the fingerprint directory from temp to somewhere permanent.
+- [ ] **Installer Scripts**: Write installer scripts for Win/MacOS/Linux
 - [ ] **Automatic Scanning**: Auto-scan for matches when a new file starts.
 - [ ] **UI/OSD Improvements**: Better visual feedback for scan progress and match confidence.
 - [ ] **Fingerprint Interoperability**: Ensure both lua and luajit fingerprints can be used interchangeably.

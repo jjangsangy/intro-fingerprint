@@ -58,6 +58,11 @@ The script is in a functional and feature-complete state for its primary goal of
     - Implemented `modules/sys.lua` to handle cross-platform directory creation and path resolution.
     - Updated `modules/fingerprint_io.lua` to use the new location.
     - Updated test suite to mock `sys` and force tests to use the temporary directory, preventing test artifacts from polluting the persistent storage.
+- **Installer Script**: Created a POSIX-compliant shell installer script (`installers/install.sh`) for Linux and macOS.
+    - **Logic**: Handles XDG, Flatpak, and Snap environment detection.
+    - **Safety**: Performs dependency checks (`curl`, `unzip`) and creates backups before installation.
+    - **Testing**: Verified logic using Docker tests against standard, Flatpak, and Snap directory structures.
+    - **Documentation**: Updated `README.md` with a one-line install command (`curl | sh`).
 
 ## Current Focus
 - User feedback and stability improvements.

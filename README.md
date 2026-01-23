@@ -25,6 +25,14 @@ When you mark an intro in one episode, the script can search for that same intro
 - **'bit' library** (optional): Standard in LuaJIT. Used for faster processing if available.
 
 # Installation
+
+## Automatic (Linux / macOS)
+Run the following command in your terminal:
+```bash
+curl -fsSL https://raw.githubusercontent.com/jjangsangy/intro-fingerprint/main/installers/install.sh | sh
+```
+
+## Manual
 1.  **Download** the ([Latest Release](https://github.com/jjangsangy/intro-fingerprint/releases/latest/download/intro-fingerprint.zip))
 2.  **Extract** the contents directly into your mpv configuration directory:
     - **Windows**: `%APPDATA%\Roaming\mpv\`

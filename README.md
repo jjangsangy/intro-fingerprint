@@ -35,7 +35,7 @@ curl -fsSL https://raw.githubusercontent.com/jjangsangy/intro-fingerprint/main/i
 ## Manual
 1.  **Download** the ([Latest Release](https://github.com/jjangsangy/intro-fingerprint/releases/latest/download/intro-fingerprint.zip))
 2.  **Extract** the contents directly into your mpv configuration directory:
-    - **Windows**: `%APPDATA%\Roaming\mpv\`
+    - **Windows**: `%APPDATA%\mpv\`
     - **Linux/macOS**: `~/.config/mpv/`
 
 # Usage

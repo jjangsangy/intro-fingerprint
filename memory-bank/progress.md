@@ -39,6 +39,10 @@
 *(No active tasks)*
 
 ## Future Roadmap
+- [ ] **Audio Fingerprint Compression**: Improve fingerprint density and retreival
+  - [ ] **Sub Sampling and Density Control**: Picker only chooses top N peaks per segment, keep raising threshold until it is met
+  - [ ] **Bit Packing**: Keep storage low by storing peaks as a 64-bit integer
+  - [ ] **Inverted Index**: Only process files that have share the the hashes
 - [ ] **Persistent Fingerprints**: Moving beyond temp files to a user-specified database or local directory.
   - [x] **Detect Bad Fingerprints**: Pre-filter low entropy images using DCT energy and audio with long silences/low complexity.
   - [ ] **Add Fingerprint Tagging**: Save metadata about media into fingerprint file for better cataloging.

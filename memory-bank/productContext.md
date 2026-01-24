@@ -1,18 +1,21 @@
 # Product Context
 
-## Why this project exists?
-When watching TV series or any episodic content, intro sequences are often identical across episodes. Manually seeking past them is repetitive and imprecise.
+## Problem
+- **Repetitive Manual Seeking**: Users must manually find the end of the intro for every episode in a series.
+- **Inconsistent Timestamps**: Intros often vary by a few seconds or frames, making simple "skip 90s" scripts unreliable.
+- **Performance Overhead**: Traditional video scanning is too CPU-intensive for seamless background execution during playback.
 
-`intro-fingerprint` solves this by allowing a user to "teach" the script what an intro looks like or sounds like once, and then automatically finding that same point in other files.
+## Solution: "Teach Once, Skip Everywhere"
+`intro-fingerprint` allows the user to mark an intro *once*. The script creates a lightweight digital fingerprint that can instantly recognize that same sequence in any future episode, regardless of minor timing or quality differences.
 
-## Problems it solves
-- **Repetitive Manual Seeking**: Users no longer need to manually seek 90 seconds forward for every episode.
-- **Inconsistent Intro Times**: Some intros vary slightly in position or length; fingerprinting finds the exact match regardless of minor timestamp variations.
-- **Performance**: Scanning high-resolution video can be slow; this script uses low-resolution grayscale hashes and optimized audio FFTs to make scanning fast enough for real-time use.
+## User Experience
+1.  **Mark**: At the end of an intro, press `Ctrl+i`.
+    *   *System saves a 256-bit video hash and 10s audio spectrogram.*
+2.  **Watch**: Open the next episode.
+3.  **Skip**: Press `Ctrl+s` (Audio) or `Ctrl+Shift+s` (Video).
+    *   *System scans the file asynchronously and jumps to the match.*
 
-## How it works
-1. **Marking**: The user navigates to the end of an intro and presses `Ctrl+i`.
-2. **Fingerprinting**: The script extracts a "fingerprint" of the video frame and the preceding 10 seconds of audio.
-3. **Storage**: Fingerprints are stored in the system temp directory.
-4. **Matching**: When a "Skip" command is issued in a different video, the script scans the new file's streams to find a match for the saved fingerprint.
-5. **Jumping**: Once a match is found, MPV seeks directly to that timestamp.
+## Core Value Proposition
+- **Robustness**: Uses perceptual hashing (PDQ) and audio constellation hashing, not just exact byte matching.
+- **Speed**: Optimized algorithms allow scanning entire files in seconds without blocking playback.
+- **Flexibility**: Works on both high-end systems (LuaJIT FFI) and standard installs (Optimized Pure Lua).

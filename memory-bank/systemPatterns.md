@@ -1,156 +1,92 @@
 # System Patterns
 
 ## Architecture Overview
-The script uses a modular architecture where `main.lua` acts as the orchestrator, requiring specialized modules from the `modules/` directory. All architectural standards and coding best practices are strictly enforced as defined in `.clinerules/mpv-lua-practices.md`. It relies on external processes (`ffmpeg`) for decoding and internal FFI logic for data processing.
+The system follows a strict modular design pattern. `main.lua` serves only as the entry point and orchestrator, delegating all logic to specialized modules in `modules/`.
 
 ```mermaid
 flowchart TD
-    subgraph Host [MPV Host]
-        Input[User Input]
-        API[MPV API]
+    Main[main.lua] --> Actions[modules/actions.lua]
+    Actions -->|Audio Logic| Audio[modules/audio.lua]
+    Actions -->|Video Logic| Video[modules/video.lua]
+    Actions -->|Process| FFmpeg[modules/ffmpeg.lua]
+
+    Audio --> FFT[modules/fft.lua]
+    Video --> Matrix[modules/pdq_matrix.lua]
+
+    subgraph Core [Shared Core]
+        Utils[modules/utils.lua]
+        State[modules/state.lua]
+        Config[modules/config.lua]
+        IO[modules/fingerprint_io.lua]
     end
 
-    subgraph Entry [Entry Point]
-        Main[main.lua]
-    end
-
-    subgraph Logic [Business Logic]
-        Actions[actions.lua]
-    end
-
-    subgraph Features [Feature Modules]
-        Video[video.lua]
-        Audio[audio.lua]
-    end
-
-    subgraph Infra [Infrastructure]
-        FFmpeg[ffmpeg.lua]
-        FFT[fft.lua]
-        UI[ui.lua]
-        FPIO[fingerprint_io.lua]
-    end
-
-    subgraph Shared [Shared Utilities]
-        Utils[utils.lua]
-        State[state.lua]
-        Config[config.lua]
-        Sys[sys.lua]
-    end
-
-    subgraph External [External Resources]
-        FS[File System]
-        Proc[FFmpeg Process]
-    end
-
-    %% Main Entry
-    Input --> Main
-    Main --> Actions
-    Main --> Utils
-
-    %% Actions Orchestration
-    Actions --> UI
-    Actions --> State
-    Actions --> Config
-    Actions --> Utils
-    Actions --> FPIO
-    Actions --> FS
-
-    %% Video Scan Logic (Encapsulated)
-    Actions -->|Delegates Scan| Video
-    Video --> FFmpeg
-    Video --> FFT
-    Video --> Utils
-
-    %% Audio Scan Logic (Orchestrated)
-    Actions -->|Runs Scan| FFmpeg
-    Actions -->|Process Data| Audio
-    Audio --> FFT
-    Audio --> Utils
-
-    %% FFmpeg Execution
-    FFmpeg --> State
-    FFmpeg --> Config
-    FFmpeg --> Proc
-
-    %% Shared Deps
-    Utils --> State
-    Utils --> Config
-    Utils --> API
-    UI --> API
-    FPIO --> Sys
-    Sys --> API
+    Actions --> Core
+    Audio --> Core
+    Video --> Core
 ```
 
-## Module Responsibilities
+### Module Responsibilities
+- **`actions.lua`**: High-level workflow (Capture -> Save, Scan -> Match -> Skip).
+- **`audio.lua`**: Constellation hashing, peak detection, spectral analysis.
+- **`video.lua`**: PDQ hashing, frame validation, Hamming distance calculation.
+- **`ffmpeg.lua`**: Profile-based command builder for sync/async execution.
+- **`fft.lua`**: dual-path FFT implementation (Stockham FFI / Cooley-Tukey Lua).
+- **`utils.lua`**: FFI loading, async coroutines, system logging.
 
-| Module | Description |
-| :--- | :--- |
-| `main.lua` | Script entry point. Registers event listeners (e.g., `end-file` for cleanup) and binds user keys. |
-| `modules/config.lua` | Centralized configuration management. Defines default options and loads overrides via `mp.options`. |
-| `modules/actions.lua` | High-level business logic. Orchestrates fingerprint capture (`save_intro`) and asynchronous scanning (`skip_intro_video`, `skip_intro_audio`). |
-| `modules/fingerprint_io.lua` | Abstraction for reading/writing fingerprint files. Uses `sys.lua` for directory resolution. |
-| `modules/ffmpeg.lua` | FFmpeg command wrapper. Abstractly manages command profiles, construction, and sync/async execution. |
-| `modules/utils.lua` | Common utility functions. Handles FFI loading with fallbacks, async coroutine management, and path generation. |
-| `modules/sys.lua` | System abstraction for directory creation and cross-platform path management. |
-| `modules/ui.lua` | Simple abstraction for User Interface feedback via MPV's OSD. |
-| `modules/state.lua` | Encapsulates shared runtime state (e.g., `scanning` flag) to prevent race conditions and manage task cancellation. |
-| `modules/video.lua` | Implements video pHash calculation and segment scanning logic. |
-| `modules/audio.lua` | Implements audio constellation hashing, peak detection, and Global Offset Histogram matching. |
-| `modules/fft.lua` | Core FFT library providing both optimized Stockham (FFI) and Cooley-Tukey (Lua) implementations. |
+## Core Algorithms
 
-## Key Algorithms
+### 1. Audio: Constellation Hashing
+Robust against noise and distortion. Matches patterns in the frequency domain.
 
-### 1. Video Fingerprinting: PDQ Hash
-- **Extraction**: Preprocesses frame using an optimized **Jarosz filter approximation** chain:
-    - `scale=512:512:flags=bilinear`
-    - `format=rgb24`, `colorchannelmixer` (Rec.601 Luminance)
-    - `avgblur=sizeX=4:sizeY=4` (Pass 1)
-    - `avgblur=sizeX=4:sizeY=4` (Pass 2) -> Approximates Tent/Triangle filter
-    - `scale=64:64:flags=neighbor` (Decimation)
-- **Validation**: Rejects low-quality frames (flat, solid color) using PDQ's Image Domain Quality Metric (Gradient Sum / 90).
-- **Hashing**: Implements Meta's PDQ Hash algorithm.
-    - **Input**: 64x64 Luminance buffer (4096 bytes).
-    - **Transformation**: Computes a specific 16x16 DCT region directly from the 64x64 input using matrix multiplication (`DCT * Input * DCT^T`).
-        - **Optimized FFI Path**: Uses FFI C-arrays for efficient matrix multiplication.
-        - **Pure Lua Fallback**: Uses standard Lua tables and `string.byte` for compatibility.
-    - **Thresholding**: Computes the median of the 256 DCT coefficients (excluding DC in some variants, but PDQ uses full buffer median). Coefficients > Median map to 1, else 0.
-- **Result**: A 256-bit hash (32 bytes).
-- **Matching**: Hamming distance. A distance $\le 50$ (configurable) is typically considered a match for near-duplicates.
-- **Search Strategy**: Sliding window centered on the original timestamp, expanding outwards to balance speed and accuracy.
+1.  **Extraction**: Extract mono s16le PCM @ 11025Hz.
+2.  **Normalization**: Apply `dynaudnorm` filter to ensure volume invariance.
+3.  **Spectrogram**:
+    *   Apply Hann window.
+    *   Compute FFT (2048 bins) using **Stockham Auto-Sort** (FFI) or **Optimized Cooley-Tukey** (Lua).
+    *   Extract Squared Magnitudes (avoiding expensive `sqrt`).
+4.  **Peak Detection**: Identify local maxima (top 5 peaks per frame).
+5.  **Hashing**: Form "Constellation Pairs" $[f1, f2, \Delta t]$.
+    *   *Anchor Point*: $f1$ at time $t$.
+    *   *Target Zone*: Look ahead $\Delta t$ frames for peak $f2$.
+    *   *Hash*: `(f1 << 23) | (f2 << 14) | delta_t`.
+6.  **Matching (Global Offset Histogram)**:
+    *   Calculate $Offset = T_{file} - T_{fingerprint}$ for every matching hash.
+    *   Bin the offsets. A true match creates a large spike at a single offset.
+    *   **Neighbor Bin Summing**: Sum counts of adjacent bins $(b_{i-1} + b_i + b_{i+1})$ to account for timing jitter.
 
-### 2. Audio Fingerprinting: Constellation Hashing
-- **Extraction**: FFmpeg extracts raw PCM (`s16le`, mono, 11025Hz).
-- **Normalization**: Applies mandatory `dynaudnorm` filter (default settings) to the audio stream. This ensures consistent spectral peaks regardless of source volume or original mixing, making the algorithm volume-invariant with minimal performance overhead.
-- **Validation**: Rejects invalid audio segments to prevent false positives.
-    - **RMS Check**: Rejects silence (RMS < 0.005).
-    - **Sparsity Check**: Rejects audio with too few non-zero samples (< 10%).
-    - **Complexity Check**: Rejects fingerprints with too few hashes (< 50) to ensure sufficient data for matching.
-- **Processing**:
-    - FFT:
-        - **LuaJIT FFI (Primary)**: FFI-optimized Stockham Radix-4 & Mixed-Radix implementation. Provides high-performance FFT processing.
-        - **Standard Lua (Fallback)**: Uses an optimized in-place Cooley-Tukey implementation with precomputed trig tables and bit-reversal caches to minimize GC overhead.
-    - Peak detection identifies the most prominent frequencies (top 5 per frame).
-- **Hashing**: Pairs of peaks $[f1, f2, \Delta t]$ are combined into a unique 32-bit hash.
-- **Inverted Index**: Saved fingerprints are indexed by hash for $O(1)$ lookup during scans.
-- **Matching**:
-    - **Global Offset Histogram**: For every match, $Offset = T_{long\_file} - T_{query}$ is calculated. A true match produces a massive "cluster" at the same offset.
-    - **Neighbor Bin Summing**: To handle timing jitter and "bin splitting," the script sums the counts of three adjacent time bins ($bin_{i-1} + bin_{i} + bin_{i+1}$) when calculating match strength. This ensures robustness against minor alignment variations.
-    - **Match Ratio**: Skips require a minimum percentage of intro hashes to be present (default 30%) to filter false positives from similar music. The ratio is calculated based on the summed neighbor peaks.
-- **Search Strategy**: **Concurrent Linear Scan**. The timeline is divided into contiguous segments (default 15s). Each segment is processed by a concurrent worker with sufficient padding to ensure no matches are lost at segment boundaries. Hashes are filtered to prevent double-counting in overlapping regions.
+### 2. Video: PDQ Hash (Perceptual)
+Robust against scaling, cropping, and compression. Uses gradients to identify content.
+
+1.  **Preprocessing (Jarosz Filter Approximation)**:
+    *   Scale to `512x512` (Bilinear).
+    *   Convert to Grayscale (Rec.601).
+    *   Blur: `avgblur=4x4` (Pass 1) -> `avgblur=4x4` (Pass 2) -> Approximates Tent filter.
+    *   Decimate to `64x64`.
+2.  **DCT Projection**:
+    *   Compute specific `16x16` low-frequency coefficients directly from the `64x64` input.
+    *   Uses **Matrix Multiplication**: $DCT \times Image \times DCT^T$.
+    *   Optimized FFI path uses contiguous C-arrays; Lua path uses flat tables and loop unrolling.
+3.  **Hashing**:
+    *   Calculate Median of the 256 coefficients.
+    *   Bit $i = 1$ if $Coeff_i > Median$, else $0$.
+    *   Result: 256-bit (32-byte) hash.
+4.  **Quality Validation**:
+    *   Reject flat/featureless frames using **Gradient Sum** metric (PDQ standard).
+    *   Reject extreme brightness/darkness or low entropy.
+5.  **Matching**:
+    *   Calculate Hamming Distance (bit differences).
+    *   Threshold $\le 50$ indicates a match.
 
 ## Performance Patterns
-- **Concurrent Worker Pool**: Audio scanning uses multiple parallel FFmpeg subprocesses (configurable via `audio_concurrency`) to maximize CPU utilization.
-- **Ordered Result Processing**: Asynchronous workers pipe results into a buffer that is processed in chronological order to maintain gradient-based early stopping.
-- **Gradient-Based Early Stopping**: Scans terminate immediately after a high-confidence match is detected and the match strength subsequently drops.
-- **LuaJIT FFI**: Critical for peak performance. Uses C-structs and arrays to avoid Lua garbage collection overhead when handling millions of data points.
-- **Zero-Allocation Fallback**: Standard Lua path uses pre-allocated buffers and lookup tables for FFT to achieve ~2.5x speedup over naive implementations, ensuring usability on builds without LuaJIT.
-- **Async Subprocesses**: `mp.command_native_async` and coroutines ensure the MPV interface remains responsive during scans.
 
-## Lifecycle Management
-- **Scan Abortion**: To prevent race conditions and orphan processes, the script listens for the `end-file` event. It uses `mp.abort_async_command` with a stored `current_scan_token` to immediately terminate any running FFmpeg workers and reset the `scanning` state.
+### Concurrent Scanning
+- **Audio**: Splits the search range into segments (e.g., 15s). Spawns multiple FFmpeg workers (default 4) to process segments in parallel.
+- **Ordered Consumption**: Main thread consumes worker results in order to support **Early Stopping**.
 
-## Data Flow
-1. **User Input** (Keybind) $\rightarrow$ **MPV Command**
-2. **FFmpeg Subprocess** $\rightarrow$ **Raw Data Pipe (stdout)**
-3. **FFI Logic** $\rightarrow$ **Hash Generation & Matching**
-4. **MPV Property Set** (`time-pos`) $\rightarrow$ **Seek**
+### Early Stopping
+- Monitors the "match strength" gradient.
+- If a high-confidence match is found and the signal subsequently drops (indicating the end of the match region), the scan aborts immediately.
+
+### Memory Management
+- **Zero-Allocation (FFI)**: Reuses pre-allocated C-buffers for FFT and image processing to prevent GC pauses.
+- **Cleanup**: Listens for `end-file` event to `abort_async_command` on any running workers, preventing zombie processes.

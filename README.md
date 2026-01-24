@@ -26,6 +26,12 @@ When you mark an intro in one episode, the script can search for that same intro
 
 # Installation
 
+## Automatic (Windows)
+Run the following command in PowerShell:
+```powershell
+irm https://raw.githubusercontent.com/jjangsangy/intro-fingerprint/main/installers/install.ps1 | iex
+```
+
 ## Automatic (Linux / macOS)
 Run the following command in your terminal:
 ```bash
@@ -37,6 +43,8 @@ curl -fsSL https://raw.githubusercontent.com/jjangsangy/intro-fingerprint/main/i
 2.  **Extract** the contents directly into your mpv configuration directory:
     - **Windows**: `%APPDATA%\mpv\`
     - **Linux/macOS**: `~/.config/mpv/`
+
+> **Note**: Automatic install scripts do not work for `portable_config` directories. If you are using a portable config, you must install it manually.
 
 # Usage
 

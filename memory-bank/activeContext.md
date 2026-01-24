@@ -63,6 +63,11 @@ The script is in a functional and feature-complete state for its primary goal of
     - **Safety**: Performs dependency checks (`curl`, `unzip`) and creates backups before installation.
     - **Testing**: Verified logic using Docker tests against standard, Flatpak, and Snap directory structures.
     - **Documentation**: Updated `README.md` with a one-line install command (`curl | sh`).
+- **Windows Installer**: Created a PowerShell installer script (`installers/install.ps1`) for Windows.
+    - **Logic**: Respects `MPV_HOME` environment variable for portable installations, falling back to `%APPDATA%\mpv`.
+    - **Safety**: Performs backups and uses `Invoke-WebRequest` with `-UseBasicParsing` for compatibility.
+    - **Testing**: Verified using a Windows Server Core Docker container.
+    - **Documentation**: Updated `README.md` with a one-line install command (`irm | iex`).
 
 ## Current Focus
 - User feedback and stability improvements.

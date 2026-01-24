@@ -31,6 +31,9 @@
 - [x] **Comprehensive Test Suite**: Implemented a full test suite covering audio/video processing, FFI/Lua FFT paths, FFmpeg command construction, and configuration, including a custom test runner with mocking support.
 - [x] **Modular Architecture Documentation**: Updated memory bank to include detailed module responsibilities and project structure.
 - [x] **PDQ Optimization**: Optimized pure Lua implementation to approach pHash performance parity.
+- [x] **Installer Scripts**: Write installer scripts for Win/MacOS/Linux
+  - [x] **Linux/macOS**: Created POSIX-compliant shell script with XDG/Flatpak/Snap support.
+  - [x] **Windows**: Created PowerShell installer script with Docker tests.
 
 ## In Progress
 *(No active tasks)*
@@ -43,9 +46,6 @@
   - [ ] **Logging Fingerprint Match**: Log which fingerprint from which file is being matched.
   - [ ] **Deduplication**: Ensure we don't save duplicate fingerprints for the same section multiple times.
   - [x] **Move Fingerprints**: Move the fingerprint directory from temp to somewhere permanent.
-- [ ] **Installer Scripts**: Write installer scripts for Win/MacOS/Linux
-  - [x] **Linux/macOS**: Created POSIX-compliant shell script with XDG/Flatpak/Snap support.
-  - [ ] **Windows**: PowerShell installer pending.
 - [ ] **Automatic Scanning**: Auto-scan for matches when a new file starts.
 - [ ] **UI/OSD Improvements**: Better visual feedback for scan progress and match confidence.
 - [ ] **Fingerprint Interoperability**: Ensure both lua and luajit fingerprints can be used interchangeably.

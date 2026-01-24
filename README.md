@@ -345,10 +345,15 @@ If the command returns a line containing `luajit`, you are good to go. If it ret
 **If `luajit` is missing:**
 
 -   **Windows**:
-    -   **Winget**: `winget install mpv`
-    -   **Chocolatey**: `choco install mpv`
-    -   **Scoop**: `scoop install mpv`
-    -   Or download the official builds from [mpv.io](https://mpv.io/installation/) (e.g., shinchiro builds)
+    These package managers typically install the [shinchiro builds](https://github.com/shinchiro/mpv-winbuild-cmake) (or equivalent) which include LuaJIT support.
+    -   **Scoop**:
+        ```powershell
+        scoop bucket add extras
+        scoop install mpv
+        ```
+    -   **Chocolatey**: `choco install mpvio`
+    -   **Winget**: `winget install "mpv (Unofficial)"`
+    -   Or download the official builds directly from [mpv.io](https://mpv.io/installation/) (select the **shinchiro** builds).
 -   **macOS**: Install via Homebrew (`brew install mpv`).
 -   **Linux**:
     -   **Arch Linux**: Install with Pacman (`pacman -S mpv`)

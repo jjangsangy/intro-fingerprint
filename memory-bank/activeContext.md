@@ -73,6 +73,9 @@ The script is in a functional and feature-complete state for its primary goal of
 - User feedback and stability improvements.
 - Ensuring documentation remains in sync with the new modular structure.
 
+## Recent Changes
+- **Documentation Update**: Updated `README.md` with specific installation instructions for Ubuntu (PPA) and Fedora (RPMFusion) to ensure users can easily obtain LuaJIT-optimized `mpv` builds.
+
 ## Active Decisions
 - **FFT Implementation**: Supports two tiers of performance:
     1.  **Stockham Radix-4 & Mixed-Radix (FFI)**: High performance implementation for LuaJIT.

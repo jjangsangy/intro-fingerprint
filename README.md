@@ -347,8 +347,18 @@ If the command returns a line containing `luajit`, you are good to go. If it ret
 -   **Windows**: Download the official builds from [mpv.io](https://mpv.io/installation/) (e.g., shinchiro builds). These include LuaJIT by default.
 -   **macOS**: Install via Homebrew: `brew install mpv`.
 -   **Linux**:
-    -   Some distribution packages (Ubuntu/Debian) ship with standard Lua instead of LuaJIT.
-    -   **Recommended**: Install via **Flatpak** from [Flathub](https://flathub.org/apps/io.mpv.Mpv), which includes LuaJIT.
+    -   **Ubuntu**: The default `mpv` package in apt often lacks LuaJIT support or is outdated. Use the [ubuntuhandbook1/mpv PPA](https://launchpad.net/~ubuntuhandbook1/+archive/ubuntu/mpv) to get the latest version with LuaJIT:
+        ```bash
+        sudo add-apt-repository ppa:ubuntuhandbook1/mpv
+        sudo apt update
+        sudo apt install mpv
+        ```
+    -   **Fedora**: The default repositories may lack full codec support or features. Use [RPMFusion](https://rpmfusion.org/):
+        ```bash
+        sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+        sudo dnf install mpv
+        ```
+    -   **Other Distributions**: Install via **Flatpak** from [Flathub](https://flathub.org/apps/io.mpv.Mpv), which includes LuaJIT.
 
 # Development & Testing
 You can use the provided VS Code DevContainer to test the script in a pre-configured Linux environment:

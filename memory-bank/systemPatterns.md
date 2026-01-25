@@ -30,7 +30,13 @@ flowchart TD
 - **`audio.lua`**: Constellation hashing, peak detection, spectral analysis.
 - **`video.lua`**: PDQ hashing, frame validation, Hamming distance calculation.
 - **`ffmpeg.lua`**: Profile-based command builder for sync/async execution.
-- **`fft.lua`**: dual-path FFT implementation (Stockham FFI / Cooley-Tukey Lua).
+- **`fft.lua`**: Dual-path FFT implementation (Stockham FFI / Cooley-Tukey Lua).
+- **`pdq_matrix.lua`**: Generates the DCT matrix for PDQ hashing.
+- **`fingerprint_io.lua`**: Handles reading/writing fingerprint data to disk.
+- **`config.lua`**: Manages configuration options and user overrides.
+- **`state.lua`**: Manages global scanning state and async tokens.
+- **`sys.lua`**: System operations (directory creation, path resolution).
+- **`ui.lua`**: Manages OSD (On-Screen Display) messaging.
 - **`utils.lua`**: FFI loading, async coroutines, system logging.
 
 ## Core Algorithms

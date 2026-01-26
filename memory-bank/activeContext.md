@@ -32,6 +32,7 @@ The script is feature-complete and highly optimized. It successfully handles cro
 ## Current Focus
 - Monitoring stability and user feedback.
 - Ensuring documentation stays synchronized with the modular structure.
+- **Fixed Logic Bug**: Resolved issue where `dt` component was dropped from audio hashes in environments with restricted `bit.bor` (2-arg limit).
 
 ## Next Steps
 - **Persistent Storage**: Move fingerprints from temp to a user-defined database directory.

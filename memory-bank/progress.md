@@ -5,6 +5,7 @@
 ### Core Algorithms
 - [x] **Constellation Hashing (Audio)**: FFT-based peak pairing, global offset histogram matching, neighbor bin summing, `dynaudnorm` normalization.
 - [x] **PDQ Hash (Video)**: Jarosz filter approximation, 16x64 DCT matrix projection, 256-bit hashing, quality validation (gradient sum, entropy).
+- [x] **Bug Fixes**: Resolved zero-hash generation bug due to variadic `bit.bor` issues in some environments.
 
 ### Performance
 - [x] **LuaJIT FFI**: Zero-allocation paths for FFT and hashing.

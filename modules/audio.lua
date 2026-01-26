@@ -65,8 +65,10 @@ local function generate_hashes(spectrogram)
                     local h
                     if utils.bit_status then
                         h = utils.bit.bor(
-                            utils.bit.lshift(utils.bit.band(f1, 0x1FF), 23),
-                            utils.bit.lshift(utils.bit.band(f2, 0x1FF), 14),
+                            utils.bit.bor(
+                                utils.bit.lshift(utils.bit.band(f1, 0x1FF), 23),
+                                utils.bit.lshift(utils.bit.band(f2, 0x1FF), 14)
+                            ),
                             utils.bit.band(dt, 0x3FFF)
                         )
                     else
@@ -158,8 +160,10 @@ local function generate_hashes_ffi(peaks, counts, num_frames)
                             local f2 = peaks[p2_base + k2]
 
                             local h = utils.bit.bor(
-                                utils.bit.lshift(utils.bit.band(f1, 0x1FF), 23),
-                                utils.bit.lshift(utils.bit.band(f2, 0x1FF), 14),
+                                utils.bit.bor(
+                                    utils.bit.lshift(utils.bit.band(f1, 0x1FF), 23),
+                                    utils.bit.lshift(utils.bit.band(f2, 0x1FF), 14)
+                                ),
                                 utils.bit.band(dt, 0x3FFF)
                             )
 

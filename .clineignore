@@ -1,4 +1,5 @@
 videos
 tests/luaunit.lua
 tests/z
-fingerprints/zfft.lua
+fingerprints/
+tests/zfft.lua

@@ -1,6 +1,7 @@
 local lu = require('tests.luaunit')
 local video = require('modules.video')
 local utils = require('modules.utils')
+local helpers = require('tests.helpers')
 
 TestVideo = {}
 
@@ -51,22 +52,13 @@ function TestVideo:test_compute_pdq_hash_ffi()
     local ffi = utils.ffi
 
     -- Create a 64x64 image
-    local data = ffi.new("uint8_t[4096]")
-    -- Use a diagonal gradient which is stable for PDQ DCT (avoids all-zero response)
-    for y = 0, 63 do
-        for x = 0, 63 do
-            local val = math.floor((x + y) * 255 / 126)
-            data[y*64 + x] = val
-        end
-    end
+    local s = helpers.generate_image_diagonal_gradient()
+    local data = helpers.string_to_ffi(s)
 
     local hash = video.compute_pdq_hash_ffi(data, 0)
     lu.assertEquals(#hash, 32)
 
     -- Compare with Lua version
-    local t = {}
-    for i=0, 4095 do table.insert(t, string.char(data[i])) end
-    local s = table.concat(t)
     local hash_lua = video.compute_pdq_hash_lua(s, 0)
 
     -- Floating point operations might cause minor differences in LSBs
@@ -78,35 +70,26 @@ end
 
 function TestVideo:test_validate_frame()
     -- Case 1: Flat image (low contrast/gradient)
-    local t = {}
-    for i=1, 4096 do table.insert(t, string.char(100)) end
-    local data_flat = table.concat(t)
+    local data_flat = helpers.generate_image_flat(100)
 
     local valid, reason = video.validate_frame(data_flat, false)
     lu.assertFalse(valid)
     lu.assertStrContains(reason, "Low Contrast") -- Flat image has 0 std dev
 
     -- Case 2: Too Dark
-    t = {}
-    for i=1, 4096 do table.insert(t, string.char(2)) end
-    local data_dark = table.concat(t)
+    local data_dark = helpers.generate_image_flat(2)
     valid, reason = video.validate_frame(data_dark, false)
     lu.assertFalse(valid)
     lu.assertStrContains(reason, "Too Dark")
 
     -- Case 3: Too Bright
-    t = {}
-    for i=1, 4096 do table.insert(t, string.char(255)) end
-    local data_bright = table.concat(t)
+    local data_bright = helpers.generate_image_flat(255)
     valid, reason = video.validate_frame(data_bright, false)
     lu.assertFalse(valid)
     lu.assertStrContains(reason, "Too Bright")
 
     -- Case 4: Random Noise (high entropy, high variance)
-    math.randomseed(12345)
-    t = {}
-    for i=1, 4096 do table.insert(t, string.char(math.random(0, 255))) end
-    local data_noise = table.concat(t)
+    local data_noise = helpers.generate_image_random(12345)
 
     local valid, reason = video.validate_frame(data_noise, false)
     if not valid then

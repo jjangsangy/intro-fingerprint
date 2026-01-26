@@ -3,6 +3,7 @@ local video = require('modules.video')
 local utils = require('modules.utils')
 local mp_utils = require('mp.utils')
 local config = require('modules.config')
+local helpers = require('tests.helpers')
 
 TestPDQHashE2E = {}
 
@@ -92,11 +93,7 @@ function TestPDQHashE2E:test_e2e_hashing()
 
         -- 5. Test FFI (if available)
         if utils.ffi_status then
-             local ffi = utils.ffi
-             local buf = ffi.new("uint8_t[?]", 4096)
-             for i = 0, 4095 do
-                 buf[i] = string.byte(pixels, i + 1)
-             end
+             local buf = helpers.string_to_ffi(pixels)
 
              -- Test FFI Quality Metric
              if ref_quality then

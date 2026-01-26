@@ -1,39 +1,16 @@
 local lu = require('tests.luaunit')
 local video = require('modules.video')
 local utils = require('modules.utils')
+local helpers = require('tests.helpers')
 
 TestPDQHash = {}
-
---- Helper to generate a deterministic 64x64 grayscale image
--- Pattern: smooth diagonal gradient
-local function generate_pattern_image()
-    local t = {}
-    for y = 0, 63 do
-        for x = 0, 63 do
-            local val = math.floor((x + y) * 255 / 126)
-            table.insert(t, string.char(val))
-        end
-    end
-    return table.concat(t)
-end
-
---- Helper to create FFI buffer from string
-local function string_to_ffi(str)
-    if not utils.ffi_status then return nil end
-    local len = #str
-    local buf = utils.ffi.new("uint8_t[?]", len)
-    for i = 0, len - 1 do
-        buf[i] = string.byte(str, i + 1)
-    end
-    return buf
-end
 
 function TestPDQHash:test_consistency_ffi_vs_lua()
     -- Only run if FFI is available
     if not utils.ffi_status then return end
 
-    local img_str = generate_pattern_image()
-    local img_ffi = string_to_ffi(img_str)
+    local img_str = helpers.generate_image_diagonal_gradient()
+    local img_ffi = helpers.string_to_ffi(img_str)
 
     local hash_lua = video.compute_pdq_hash_lua(img_str, 0)
     local hash_ffi = video.compute_pdq_hash_ffi(img_ffi, 0)
@@ -62,7 +39,7 @@ function TestPDQHash:test_pure_lua_fallback_no_bitop()
     utils.bit_status = false
     utils.bit = nil
 
-    local img_str = generate_pattern_image()
+    local img_str = helpers.generate_image_diagonal_gradient()
 
     -- Run compute (this will trigger the arithmetic bit shifting fallback)
     -- We can compare it against the known "good" result (from previous test or itself with bitop)
@@ -123,9 +100,7 @@ function TestPDQHash:test_quality_metrics_gradient()
     -- Or just vertical lines.
 
     -- 1. Perfectly Flat Image -> Quality 0
-    local t = {}
-    for i=1, 4096 do table.insert(t, string.char(128)) end
-    local img_flat = table.concat(t)
+    local img_flat = helpers.generate_image_flat(128)
     local valid, reason = video.validate_frame(img_flat, false)
     lu.assertFalse(valid)
     lu.assertStrContains(reason, "Low Contrast") -- Flat fails contrast first usually
@@ -164,10 +139,7 @@ function TestPDQHash:test_quality_metrics_gradient()
 
     -- 3. High Gradient Image (Noise)
     -- Random noise has high gradient everywhere.
-    math.randomseed(42)
-    t = {}
-    for i=1, 4096 do table.insert(t, string.char(math.random(0,255))) end
-    local img_noise = table.concat(t)
+    local img_noise = helpers.generate_image_random(42)
 
     valid, reason = video.validate_frame(img_noise, false)
     lu.assertTrue(valid)

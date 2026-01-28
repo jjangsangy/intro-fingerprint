@@ -113,11 +113,11 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 | `audio_target_t_max`         | `100`   | Maximum delay in frames for peak pairs in constellation hashing.            |
 
 ### Audio Validation Options
-| Option                       | Default | Description                                                        |
-| :--------------------------- | :------ | :----------------------------------------------------------------- |
-| `audio_silence_threshold`    | `0.005` | RMS amplitude threshold below which audio is considered silence.   |
-| `audio_sparsity_threshold`   | `0.10`  | Minimum signal density (non-zero samples ratio).                   |
-| `audio_min_complexity`       | `50`    | Minimum number of hashes required for a valid fingerprint.         |
+| Option                     | Default | Description                                                      |
+| :------------------------- | :------ | :--------------------------------------------------------------- |
+| `audio_silence_threshold`  | `0.005` | RMS amplitude threshold below which audio is considered silence. |
+| `audio_sparsity_threshold` | `0.10`  | Minimum signal density (non-zero samples ratio).                 |
+| `audio_min_complexity`     | `50`    | Minimum number of hashes required for a valid fingerprint.       |
 
 ## Video Options
 | Option                    | Default | Description                                                       |
@@ -130,13 +130,13 @@ You can customize the script by creating `intro-fingerprint.conf` in your mpv `s
 | `video_window_step`       | `30`    | Step size (seconds) when expanding the video search window.       |
 
 ### Video Validation Options
-| Option                    | Default | Description                                     |
-| :------------------------ | :------ | :---------------------------------------------- |
-| `video_min_brightness`    | `15`    | Minimum mean brightness (0-255).                |
-| `video_max_brightness`    | `240`   | Maximum mean brightness (0-255).                |
-| `video_min_contrast`      | `10.0`  | Minimum standard deviation.                     |
-| `video_min_entropy`       | `4.0`   | Minimum entropy (0-8).                          |
-| `video_min_quality`       | `50`    | Minimum PDQ quality score (0-100).              |
+| Option                 | Default | Description                        |
+| :--------------------- | :------ | :--------------------------------- |
+| `video_min_brightness` | `15`    | Minimum mean brightness (0-255).   |
+| `video_max_brightness` | `240`   | Maximum mean brightness (0-255).   |
+| `video_min_contrast`   | `10.0`  | Minimum standard deviation.        |
+| `video_min_entropy`    | `4.0`   | Minimum entropy (0-8).             |
+| `video_min_quality`    | `50`    | Minimum PDQ quality score (0-100). |
 
 ## File Paths
 | Option                | Default                       | Description                      |
@@ -174,32 +174,32 @@ To ensure robust matching, the system automatically validates frames before crea
 ### Examples
 
 #### 1. Good Frame (Accepted)
-| Original Frame | What PDQ Hash Sees |
-| :---: | :---: |
+|         Original Frame          |              What PDQ Hash Sees               |
+| :-----------------------------: | :-------------------------------------------: |
 | ![Accepted](assets/samuel.webp) | ![Accepted pHash](assets/samuel_pdqhash.webp) |
 
 **Reason: High Quality.**
 The image has distinct edges, good contrast, and clear shapes that remain visible even after resizing. This produces a strong, unique fingerprint.
 
 #### 2. Bad Frame (Too Dark & Flat)
-| Original Frame | What PDQ Hash Sees |
-| :---: | :---: |
+|            Original Frame             |                 What PDQ Hash Sees                  |
+| :-----------------------------------: | :-------------------------------------------------: |
 | ![Rejected](assets/interstellar.webp) | ![Rejected pHash](assets/interstellar_pdqhash.webp) |
 
 **Reason: Extremely Dark & Low Contrast.**
 The scene is too dim to extract meaningful features. The PDQ algorithm effectively sees a black square, which would match *any* other dark scene.
 
 #### 3. Bad Frame (Low Structure)
-| Original Frame | What PDQ Hash Sees |
-| :---: | :---: |
+|       Original Frame        |            What PDQ Hash Sees             |
+| :-------------------------: | :---------------------------------------: |
 | ![Waves](assets/waves.webp) | ![Waves pHash](assets/waves_pdqhash.webp) |
 
 **Reason: Lack of Sharp Edges.**
 The image consists of smooth color transitions (gradients) without any sharp lines. PDQ Hash relies on edge detection, so smooth blurs result in a weak fingerprint that fails the Gradient Quality check.
 
 #### 4. Weak Frame (Low Texture)
-| Original Frame | What PDQ Hash Sees |
-| :---: | :---: |
+|          Original Frame           |               What PDQ Hash Sees                |
+| :-------------------------------: | :---------------------------------------------: |
 | ![Betrayal](assets/betrayal.webp) | ![Betrayal pHash](assets/betrayal_pdqhash.webp) |
 
 **Reason: Low Feature Density.**

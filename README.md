@@ -174,7 +174,7 @@ To ensure robust matching, the system automatically validates frames before crea
 ### Examples
 
 #### 1. Good Frame (Accepted)
-| Original Frame | What PDQ Hash Sees (64x64 -> 16x16 Low Freq) |
+| Original Frame | What PDQ Hash Sees |
 | :---: | :---: |
 | ![Accepted](assets/samuel.webp) | ![Accepted pHash](assets/samuel_pdqhash.webp) |
 
